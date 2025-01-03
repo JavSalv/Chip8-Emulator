@@ -1,6 +1,6 @@
 CC = gcc
-SRC_MAIN = src/main.c
-SRC_TEST = src/SDL_test.c
+SRC_MAIN = main.c
+SRC_TEST = SDL_test.c
 TARGET_MAIN = main
 TARGET_TEST = sdl_test
 SDL_PATH = ./SDL3
