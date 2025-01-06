@@ -37,7 +37,7 @@ void set_vx_value(Chip8_CPU *cpu, WORD instruction, BYTE value)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
     ASSERT((vX <= 15 && vX >= 0), "[ERROR] Tried to acces data register V%u at PC: 0x%04x\n", vX, cpu->program_counter);
-    cpu->game_registers[vX] = (instruction & 0xFF);
+    cpu->game_registers[vX] = value;
 }
 
 BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
@@ -49,27 +49,22 @@ BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
 
 void draw_sprite(Chip8_CPU *cpu, WORD instruction)
 {
-    BYTE coordX = get_vx(cpu, instruction);
-    BYTE coordY = get_vy(cpu, instruction);
-    BYTE height = instruction & 0xF;
-
+    BYTE coordX = get_vx(cpu, instruction) & 63;
+    BYTE coordY = get_vy(cpu, instruction) & 31;
     cpu->game_registers[0xF] = 0;
+    BYTE height = instruction & 0xF;
+    BYTE pixel;
 
     for (int yline = 0; yline < height; yline++)
     {
-        BYTE data = cpu->game_memory[cpu->i_register + yline];
-        BYTE xpixelinv = 7;
-        BYTE xpixel = 0;
-        for (xpixel = 0; xpixel < 8; xpixel++, xpixelinv--)
+        pixel = cpu->game_memory[cpu->i_register + yline];
+        for (int xline = 0; xline < 8; xline++)
         {
-            int mask = 1 << xpixelinv;
-            if (data & mask)
+            if ((pixel & (0x80 >> xline)) != 0)
             {
-                int x = coordX + xpixel;
-                int y = coordY + yline;
-                if (cpu->screen_buffer[x][y] == 1)
-                    cpu->game_registers[0xF] = 1; // collision
-                cpu->screen_buffer[x][y] ^= 1;
+                if (cpu->screen_buffer[(coordX + xline + ((coordY + yline) * 64))] == 1)
+                    cpu->game_registers[0xF] = 1;
+                cpu->screen_buffer[coordX + xline + ((coordY + yline) * 64)] ^= 1;
             }
         }
     }
@@ -105,7 +100,8 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         case (0x000E):
             return_subroutine(cpu);
             break;
-        }break;
+        }
+        break;
 
     // 1NNN: Jump to address NNN
     case (0x1000):
@@ -142,6 +138,9 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         break;
     // 7XNN: Add the value NN to register VX
     case (0x7000):
+        vx = get_vx(cpu, inst);
+        value = (inst & 0x00FF);
+        set_vx_value(cpu, inst, (vx + value));
         break;
 
     // Instrucciones 8XXX
@@ -222,7 +221,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         break;
     // DXYN: Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise
     case (0xD000):
-        draw_sprite(cpu,inst);
+        draw_sprite(cpu, inst);
         break;
 
     case (0xE000):
@@ -292,12 +291,12 @@ void init_cpu(Chip8_CPU *cpu, FILE *stream)
 }
 
 void run_instructions(Chip8_CPU *cpu, int n_instructions)
-{   
+{
     WORD inst;
-    for(int i = 0; i< n_instructions; i++)
+    for (int i = 0; i < n_instructions; i++)
     {
         inst = fetch_instruction(cpu);
-        //printf("0x%04x\n",inst);
-        decode_instruction(cpu,inst);
+        // printf("0x%04x\n",inst);
+        decode_instruction(cpu, inst);
     }
 }

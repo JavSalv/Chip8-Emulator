@@ -53,17 +53,12 @@ void frame_end(FpsDeltaTime *fpsdt)
     }
 }
 
-void cpu_to_screen(BYTE cpu_buffer[RENDER_WIDTH][RENDER_HEIGHT], uint32_t *screen_buffer)
+void cpu_to_screen(BYTE *cpu_buffer, uint32_t *screen_buffer)
 {
-
-    for (int y = 0; y < RENDER_HEIGHT; y++)
-        for (int x = 0; x < RENDER_WIDTH; x++)
-        {
-            if (cpu_buffer[x][y] == 1)
-                screen_buffer[y * RENDER_WIDTH + x] = 0xFFFFFFFF;
-            else
-                screen_buffer[y * RENDER_WIDTH + x] = 0x0;
-        }
+    for (int i = 0; i < RENDER_WIDTH * RENDER_HEIGHT; i++)
+    {
+        screen_buffer[i] = cpu_buffer[i] ? 0xFFFFFFFF : 0x0;
+    }
 }
 
 int main(int argc, char *argv[])
@@ -76,7 +71,7 @@ int main(int argc, char *argv[])
     uint32_t *screen_buffer;
 
     Chip8_CPU cpu = {0};
-    const char *filename = "test_opcode.ch8";
+    const char *filename = "2-ibm-logo.ch8";
 
     FILE *fd = fopen(filename, "rb");
     ASSERT((fd != NULL), "[ERROR] \"%s\" No such file or directory.\n", filename);
@@ -98,7 +93,7 @@ int main(int argc, char *argv[])
     screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
     ASSERT((screen_texture != NULL), "[ERROR] Can't create screen surface: %s\n", SDL_GetError());
 
-    screen_buffer = calloc(RENDER_HEIGHT * RENDER_WIDTH,sizeof(uint32_t));
+    screen_buffer = calloc(RENDER_HEIGHT * RENDER_WIDTH, sizeof(uint32_t));
     ASSERT((screen_buffer != NULL), "[ERROR] Can't allocate space for screen buffer : %s\n", strerror(errno));
 
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
@@ -125,11 +120,11 @@ int main(int argc, char *argv[])
         // Termina input
         // Ejecuto ciclo
         run_instructions(&cpu, CYCLES_PER_FRAME);
-        cpu_to_screen(cpu.screen_buffer,screen_buffer);
+        cpu_to_screen(cpu.screen_buffer, screen_buffer);
         // Muestro en pantalla
         SDL_RenderClear(renderer);
         SDL_UpdateTexture(screen_texture, NULL, screen_buffer, RENDER_WIDTH * sizeof(uint32_t));
-        SDL_RenderCopy(renderer,screen_texture,NULL,NULL);
+        SDL_RenderCopy(renderer, screen_texture, NULL, NULL);
         SDL_RenderPresent(renderer);
 
         frame_end(&fps_dt);
