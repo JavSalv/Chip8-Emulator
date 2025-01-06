@@ -8,8 +8,14 @@
 #include "Chip8_CPU.h"
 
 #define FPS_TARGET 60
-#define SCREEN_WIDTH 512
-#define SCREEN_HEIGHT 256
+
+#define RENDER_WIDTH 64
+#define RENDER_HEIGHT 32
+
+#define SCREEN_WIDTH 1024
+#define SCREEN_HEIGHT 512
+
+
 
 // Frame cap from https://github.com/tsoding/sowon/blob/master/main.c
 typedef struct
@@ -90,21 +96,22 @@ int main(int argc, char *argv[])
 
     atexit(SDL_Quit);
     retval = SDL_Init(SDL_INIT_VIDEO);
-    ASSERT((retval == 1), "[ERROR] Can't initialize SDL: %s\n", SDL_GetError());
+    ASSERT((retval == 0), "[ERROR] Can't initialize SDL: %s\n", SDL_GetError());
 
-    window = SDL_CreateWindow("Chip8 Emulator", SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow("Chip8 Emulator",SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
     ASSERT((window != NULL), "[ERROR] Can't create SDL window: %s\n", SDL_GetError());
 
-    renderer = SDL_CreateRenderer(window,NULL);
+    renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_PRESENTVSYNC);
     ASSERT((window != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
 
-    retval = SDL_SetRenderLogicalPresentation(renderer,64,32,SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
-    ASSERT((retval == 1), "[ERROR] Can't set renderer options: %s\n", SDL_GetError());
+    SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
+    SDL_RenderSetIntegerScale(renderer, 1);
+
     
-    screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+    screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
     ASSERT((screen_texture != NULL), "[ERROR] Can't create screen surface: %s\n", SDL_GetError());
 
-    screen_buffer = calloc(64*32*sizeof(uint32_t),1);
+    screen_buffer = calloc(RENDER_HEIGHT*RENDER_WIDTH*sizeof(uint32_t),1);
     ASSERT((screen_buffer != NULL), "[ERROR] Can't allocate space for screen buffer : %s\n", strerror(errno));
     
 
@@ -115,6 +122,8 @@ int main(int argc, char *argv[])
     init_cpu(&cpu, fd);
     fclose(fd);
 
+    SDL_SetRenderDrawColor(renderer,0,0,0,0);
+
     while (running)
     {
         frame_start(&fps_dt);
@@ -123,17 +132,17 @@ int main(int argc, char *argv[])
         SDL_Event event = {0};
         while (SDL_PollEvent(&event))
         {
-            if (event.type == SDL_EVENT_QUIT)
+            if (event.type == SDL_QUIT)
             {
                 running = 0;
                 break;
             }
         }
         // Termina input
-        SDL_SetRenderDrawColor(renderer,0,0,0,0);
+        
         SDL_RenderClear(renderer);
-        SDL_UpdateTexture(screen_texture,NULL,screen_buffer,64*sizeof(uint32_t));
-        SDL_RenderTextureRotated(renderer,screen_texture,NULL,NULL,0,NULL,SDL_FLIP_VERTICAL);
+        SDL_UpdateTexture(screen_texture,NULL,screen_buffer,RENDER_WIDTH*sizeof(uint32_t));
+        SDL_RenderCopyEx(renderer,screen_texture,NULL,NULL,0,NULL,SDL_FLIP_VERTICAL);
         SDL_RenderPresent(renderer);
         // Ejecuto instrucciones
 
