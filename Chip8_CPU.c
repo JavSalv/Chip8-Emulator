@@ -3,22 +3,6 @@
 
 
 
-void init_cpu(Chip8_CPU *cpu, FILE* stream)
-{   
-    cpu_reset(cpu);
-    fread(cpu->game_memory[0x200], sizeof(BYTE), 0xfff, stream);
-}
-
-void cpu_reset(Chip8_CPU *cpu)
-{
-    memset(cpu->game_memory, 0, sizeof(cpu->game_memory));
-    memset(cpu->game_registers, 0, sizeof(cpu->game_registers));
-    memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
-    reset_stack(&cpu->call_stack);
-    cpu->i_register = 0;
-    cpu->program_counter = 0x200;
-}
-
 void return_subroutine(Chip8_CPU *cpu)
 {
     ASSERT((cpu->call_stack.n_elements > 0), "[ERROR] Tried to pop empty stack at PC: 0x%04x\n", cpu->program_counter);
@@ -260,4 +244,20 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         fprintf(stderr, "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
         exit(EXIT_FAILURE);
     }
+}
+
+void cpu_reset(Chip8_CPU *cpu)
+{
+    memset(cpu->game_memory, 0, sizeof(cpu->game_memory));
+    memset(cpu->game_registers, 0, sizeof(cpu->game_registers));
+    memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
+    reset_stack(&cpu->call_stack);
+    cpu->i_register = 0;
+    cpu->program_counter = 0x200;
+}
+
+void init_cpu(Chip8_CPU *cpu, FILE* stream)
+{   
+    cpu_reset(cpu);
+    fread(&cpu->game_memory[0x200], sizeof(BYTE), 0xfff, stream);
 }
