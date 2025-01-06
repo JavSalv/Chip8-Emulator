@@ -34,6 +34,8 @@ typedef struct
     Stack call_stack;
     BYTE screen_buffer[64*32];
 
+    BYTE keys[16];
+
     BYTE delay_timer;
     BYTE sound_timer;
 } Chip8_CPU;

@@ -1,5 +1,26 @@
 #include "Chip8_CPU.h"
 
+BYTE digits[] = {
+    // Start at 0x050
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    // End at 0x09F
+};
+
 void return_subroutine(Chip8_CPU *cpu)
 {
     ASSERT((cpu->call_stack.n_elements > 0), "[ERROR] Tried to pop empty stack at PC: 0x%04x\n", cpu->program_counter);
@@ -47,27 +68,39 @@ BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
     return cpu->game_registers[vY];
 }
 
-void dump_vx(Chip8_CPU* cpu, WORD instruction)
+void dump_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE max = (instruction & 0x0F00) >> 8;
 
-    for(int x = 0; x<= max; x++)
+    for (int x = 0; x <= max; x++)
     {
-        cpu->game_memory[cpu->i_register+x] = cpu->game_registers[x];
+        cpu->game_memory[cpu->i_register + x] = cpu->game_registers[x];
     }
-    cpu->i_register+= max+1;
+    cpu->i_register += max + 1;
 }
 
-void load_vx(Chip8_CPU* cpu, WORD instruction)
+void load_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE max = (instruction & 0x0F00) >> 8;
 
-    for(int x = 0; x<= max; x++)
+    for (int x = 0; x <= max; x++)
     {
-        cpu->game_registers[x] = cpu->game_memory[cpu->i_register+x];
+        cpu->game_registers[x] = cpu->game_memory[cpu->i_register + x];
     }
-    cpu->i_register+= max+1;
+    cpu->i_register += max + 1;
+}
 
+void wait_key(Chip8_CPU* cpu, WORD instruction)
+{
+    for(BYTE i = 0; i < 16; i++)
+    {
+        if(cpu->keys[i])
+        {
+            set_vx_value(cpu,instruction,i);
+            return;
+        }
+    }
+    cpu->program_counter-=2;
 }
 
 void draw_sprite(Chip8_CPU *cpu, WORD instruction)
@@ -125,7 +158,7 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
             break;
         // 0000: NOP instruction.
         default:
-            ASSERT((0),"[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
+            ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
             break;
         }
         break;
@@ -233,7 +266,7 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         // 8XYE: Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift. VY is unchanged.
         case (0x800E):
             vy = get_vy(cpu, inst);
-            set_vx_value(cpu,inst, (vy << 1));
+            set_vx_value(cpu, inst, (vy << 1));
             cpu->game_registers[0xF] = (vy & 0x80) >> 7;
             break;
         }
@@ -243,7 +276,9 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
     case (0x9000):
         vx = get_vx(cpu, inst);
         vy = get_vy(cpu, inst);
-        if(vx != vy) cpu->program_counter+=2;
+
+        if (vx != vy)
+            cpu->program_counter += 2;
         break;
     // ANNN: Store memory address NNN in register I
     case (0xA000):
@@ -255,7 +290,7 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         break;
     // CXNN: Set VX to a random number with a mask of NN
     case (0xC000):
-        ASSERT((0),"[ERROR] Unimplemented instruction 'CXNN'\n");
+        set_vx_value(cpu, inst, (rand() & (inst & 0xFF)));
         break;
     // DXYN: Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise
     case (0xD000):
@@ -267,11 +302,13 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         {
         // EX9E: Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed.
         case (0xE09E):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'EX9E'\n");
+            vx = get_vx(cpu, inst);
+            if(cpu->keys[vx]) cpu->program_counter+=2;
             break;
         // EXA1: Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed
         case (0xE0A1):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'EXA1'\n");
+            vx = get_vx(cpu, inst);
+            if(!cpu->keys[vx]) cpu->program_counter+=2;
             break;
         }
         break;
@@ -281,48 +318,49 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         {
         // FX07: Store the current value of the delay timer in register VX
         case (0xF007):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'XXXX'\n");
+            set_vx_value(cpu,inst,cpu->delay_timer);
             break;
         // FX0A: Wait for a keypress and store the result in register VX
         case (0xF00A):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'XXXX'\n");
+            wait_key(cpu,inst);
             break;
         // FX15: Set the delay timer to the value of register VX
         case (0xF015):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'XXXX'\n");
+            ASSERT((0), "[ERROR] Unimplemented instruction 'XXXX'\n");
             break;
         // FX18: Set the sound timer to the value of register VX
         case (0xF018):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'XXXX'\n");
+            ASSERT((0), "[ERROR] Unimplemented instruction 'XXXX'\n");
             break;
         // FX1E: Add the value stored in register VX to register I
         case (0xF01E):
-            vx = get_vx(cpu,inst);
-            cpu->i_register+= vx;
+            vx = get_vx(cpu, inst);
+            cpu->i_register += vx;
             break;
         // FX29: Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
         case (0xF029):
-            ASSERT((0),"[ERROR] Unimplemented instruction 'XXXX'\n");
+            vx = get_vx(cpu,inst);
+            cpu->i_register = 0x50 + (5*vx);
             break;
         // FX33: Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2
         case (0xF033):
-            vx = get_vx(cpu,inst);
+            vx = get_vx(cpu, inst);
             cpu->game_memory[cpu->i_register] = vx / 100;
-            cpu->game_memory[cpu->i_register+1] = (vx / 10) % 10;
-            cpu->game_memory[cpu->i_register+2] = vx % 10;
+            cpu->game_memory[cpu->i_register + 1] = (vx / 10) % 10;
+            cpu->game_memory[cpu->i_register + 2] = vx % 10;
             break;
         // FX55: Store the values of registers V0 to VX inclusive in memory starting at address I. I is set to I + X + 1 after operation.
         case (0xF055):
-            dump_vx(cpu,inst);
+            dump_vx(cpu, inst);
             break;
         // FX65: Fill registers V0 to VX inclusive with the values stored in memory starting at address I. I is set to I + X + 1 after operation.
         case (0xF065):
-            load_vx(cpu,inst);
+            load_vx(cpu, inst);
             break;
         }
         break;
     default:
-        ASSERT((0),"[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
+        ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
     }
 }
 
@@ -331,6 +369,7 @@ void cpu_reset(Chip8_CPU *cpu)
     memset(cpu->game_memory, 0, sizeof(cpu->game_memory));
     memset(cpu->game_registers, 0, sizeof(cpu->game_registers));
     memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
+    memcpy(&cpu->game_memory[0x050], &digits, sizeof(digits));
     reset_stack(&cpu->call_stack);
     cpu->i_register = 0;
     cpu->program_counter = 0x200;
