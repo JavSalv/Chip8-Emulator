@@ -187,6 +187,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         break;
     // ANNN: Store memory address NNN in register I
     case (0xA000):
+        cpu->i_register = (inst & 0x0FFF);
         break;
     // BNNN: Jump to address NNN + V0
     case (0xB000):
