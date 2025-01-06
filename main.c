@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     uint32_t *screen_buffer;
 
     Chip8_CPU cpu = {0};
-    const char *filename = "2-ibm-logo.ch8";
+    const char *filename = "test_roms/4-flags.ch8";
 
     FILE *fd = fopen(filename, "rb");
     ASSERT((fd != NULL), "[ERROR] \"%s\" No such file or directory.\n", filename);

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define STACK_SIZE 16
-#define CYCLES_PER_FRAME 10
+#define CYCLES_PER_FRAME 50
 
 #define ASSERT(_bool, ...)                \
     do                                    \
@@ -33,6 +33,9 @@ typedef struct
     WORD program_counter;
     Stack call_stack;
     BYTE screen_buffer[64*32];
+
+    BYTE delay_timer;
+    BYTE sound_timer;
 } Chip8_CPU;
 
 
