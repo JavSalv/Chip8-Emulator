@@ -15,8 +15,6 @@
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 512
 
-
-
 // Frame cap from https://github.com/tsoding/sowon/blob/master/main.c
 typedef struct
 {
@@ -39,7 +37,7 @@ void frame_start(FpsDeltaTime *fpsdt)
     const Uint64 now = SDL_GetPerformanceCounter();
     const Uint64 elapsed = now - fpsdt->last_time;
     fpsdt->dt = ((float)elapsed) / ((float)SDL_GetPerformanceFrequency());
-    //printf("\rFPS: %f | dt %f", 1.0 / fpsdt->dt, fpsdt->dt);
+    // printf("\rFPS: %f | dt %f", 1.0 / fpsdt->dt, fpsdt->dt);
     fpsdt->last_time = now;
 }
 
@@ -55,38 +53,27 @@ void frame_end(FpsDeltaTime *fpsdt)
     }
 }
 
+void cpu_to_screen(BYTE cpu_buffer[RENDER_WIDTH][RENDER_HEIGHT], uint32_t *screen_buffer)
+{
+
+    for (int y = 0; y < RENDER_HEIGHT; y++)
+        for (int x = 0; x < RENDER_WIDTH; x++)
+        {
+            if (cpu_buffer[x][y] == 1)
+                screen_buffer[y * RENDER_WIDTH + x] = 0xFFFFFFFF;
+            else
+                screen_buffer[y * RENDER_WIDTH + x] = 0x0;
+        }
+}
+
 int main(int argc, char *argv[])
 {
-    /*     Chip8_CPU cpu = {};
-        cpu_reset(&cpu);
-        const char *filename = "test_opcode.ch8";
-
-        FILE *fd = fopen(filename, "rb");
-        if (NULL == fd)
-        {
-            fprintf(stderr, "[ERROR] \"%s\" No such file or directory.\n", filename);
-            exit(1);
-        }
-
-        fread(&cpu.game_memory[0x200], sizeof(BYTE), 0xfff, fd);
-        fclose(fd);
-        WORD inst;
-
-        while (cpu.program_counter < 0xfff)
-        {
-            inst = fetch_instruction(&cpu);
-            printf("0x%04x\n", inst);
-            decode_instruction(&cpu, inst);
-        }
-
-        return 0; */
-
     int retval;
     int running = 1;
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *screen_texture;
-    uint32_t* screen_buffer;
+    uint32_t *screen_buffer;
 
     Chip8_CPU cpu = {0};
     const char *filename = "test_opcode.ch8";
@@ -98,31 +85,28 @@ int main(int argc, char *argv[])
     retval = SDL_Init(SDL_INIT_VIDEO);
     ASSERT((retval == 0), "[ERROR] Can't initialize SDL: %s\n", SDL_GetError());
 
-    window = SDL_CreateWindow("Chip8 Emulator",SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow("Chip8 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
     ASSERT((window != NULL), "[ERROR] Can't create SDL window: %s\n", SDL_GetError());
 
-    renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_PRESENTVSYNC);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
     ASSERT((window != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
 
-    SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
-    SDL_RenderSetIntegerScale(renderer, 1);
+    retval = SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
+    retval |= SDL_RenderSetIntegerScale(renderer, 1);
+    ASSERT((retval == 0), "[ERROR] Can't set SDL render settings: %s\n", SDL_GetError());
 
-    
-    screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
+    screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
     ASSERT((screen_texture != NULL), "[ERROR] Can't create screen surface: %s\n", SDL_GetError());
 
-    screen_buffer = calloc(RENDER_HEIGHT*RENDER_WIDTH*sizeof(uint32_t),1);
+    screen_buffer = calloc(RENDER_HEIGHT * RENDER_WIDTH,sizeof(uint32_t));
     ASSERT((screen_buffer != NULL), "[ERROR] Can't allocate space for screen buffer : %s\n", strerror(errno));
-    
 
-
-    
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
 
     init_cpu(&cpu, fd);
     fclose(fd);
 
-    SDL_SetRenderDrawColor(renderer,0,0,0,0);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
 
     while (running)
     {
@@ -139,12 +123,14 @@ int main(int argc, char *argv[])
             }
         }
         // Termina input
-        
+        // Ejecuto ciclo
+        run_instructions(&cpu, CYCLES_PER_FRAME);
+        cpu_to_screen(cpu.screen_buffer,screen_buffer);
+        // Muestro en pantalla
         SDL_RenderClear(renderer);
-        SDL_UpdateTexture(screen_texture,NULL,screen_buffer,RENDER_WIDTH*sizeof(uint32_t));
-        SDL_RenderCopyEx(renderer,screen_texture,NULL,NULL,0,NULL,SDL_FLIP_VERTICAL);
+        SDL_UpdateTexture(screen_texture, NULL, screen_buffer, RENDER_WIDTH * sizeof(uint32_t));
+        SDL_RenderCopy(renderer,screen_texture,NULL,NULL);
         SDL_RenderPresent(renderer);
-        // Ejecuto instrucciones
 
         frame_end(&fps_dt);
     }

@@ -1,7 +1,4 @@
-#include"Chip8_CPU.h"
-
-
-
+#include "Chip8_CPU.h"
 
 void return_subroutine(Chip8_CPU *cpu)
 {
@@ -21,7 +18,6 @@ void reset_stack(Stack *stack)
     memset(stack->stack, 0, sizeof(stack->stack));
     stack->n_elements = 0;
 }
-
 
 BYTE get_vx(Chip8_CPU *cpu, WORD instruction)
 {
@@ -49,6 +45,34 @@ BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
     BYTE vY = (instruction & 0x00F0) >> 4;
     ASSERT((vY <= 15 && vY >= 0), "[ERROR] Tried to acces data register V%u at PC: 0x%04x\n", vY, cpu->program_counter);
     return cpu->game_registers[vY];
+}
+
+void draw_sprite(Chip8_CPU *cpu, WORD instruction)
+{
+    BYTE coordX = get_vx(cpu, instruction);
+    BYTE coordY = get_vy(cpu, instruction);
+    BYTE height = instruction & 0xF;
+
+    cpu->game_registers[0xF] = 0;
+
+    for (int yline = 0; yline < height; yline++)
+    {
+        BYTE data = cpu->game_memory[cpu->i_register + yline];
+        BYTE xpixelinv = 7;
+        BYTE xpixel = 0;
+        for (xpixel = 0; xpixel < 8; xpixel++, xpixelinv--)
+        {
+            int mask = 1 << xpixelinv;
+            if (data & mask)
+            {
+                int x = coordX + xpixel;
+                int y = coordY + yline;
+                if (cpu->screen_buffer[x][y] == 1)
+                    cpu->game_registers[0xF] = 1; // collision
+                cpu->screen_buffer[x][y] ^= 1;
+            }
+        }
+    }
 }
 
 WORD fetch_instruction(Chip8_CPU *cpu)
@@ -81,7 +105,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         case (0x000E):
             return_subroutine(cpu);
             break;
-        }
+        }break;
 
     // 1NNN: Jump to address NNN
     case (0x1000):
@@ -181,6 +205,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         case (0x800E):
             break;
         }
+        break;
 
     // 9XY0: Skip the following instruction if the value of register VX is not equal to the value of register VY
     case (0x9000):
@@ -197,6 +222,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         break;
     // DXYN: Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise
     case (0xD000):
+        draw_sprite(cpu,inst);
         break;
 
     case (0xE000):
@@ -209,6 +235,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         case (0xE0A1):
             break;
         }
+        break;
 
     case (0xF000):
         switch (inst & 0xF0FF)
@@ -241,6 +268,7 @@ void decode_instruction(Chip8_CPU *cpu, WORD inst)
         case (0xF065):
             break;
         }
+        break;
     default:
         fprintf(stderr, "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
         exit(EXIT_FAILURE);
@@ -257,8 +285,19 @@ void cpu_reset(Chip8_CPU *cpu)
     cpu->program_counter = 0x200;
 }
 
-void init_cpu(Chip8_CPU *cpu, FILE* stream)
-{   
+void init_cpu(Chip8_CPU *cpu, FILE *stream)
+{
     cpu_reset(cpu);
     fread(&cpu->game_memory[0x200], sizeof(BYTE), 0xfff, stream);
+}
+
+void run_instructions(Chip8_CPU *cpu, int n_instructions)
+{   
+    WORD inst;
+    for(int i = 0; i< n_instructions; i++)
+    {
+        inst = fetch_instruction(cpu);
+        //printf("0x%04x\n",inst);
+        decode_instruction(cpu,inst);
+    }
 }

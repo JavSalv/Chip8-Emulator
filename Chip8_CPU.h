@@ -32,8 +32,10 @@ typedef struct
     WORD i_register;
     WORD program_counter;
     Stack call_stack;
-    BYTE screen_buffer[64 * 32];
+    BYTE screen_buffer[64][32];
 } Chip8_CPU;
 
 
 void init_cpu(Chip8_CPU* cpu, FILE* stream);
+
+void run_instructions(Chip8_CPU* cpu, int n_instructions);
