@@ -346,7 +346,7 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         // FX29: Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
         case (0xF029):
             vx = get_vx(cpu, inst);
-            cpu->i_register = 0x50 + (5 * vx);
+            cpu->i_register = 0x50 + (5 * vx); //Max 0x9f
             break;
         // FX33: Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2
         case (0xF033):
