@@ -1,8 +1,7 @@
 CC = gcc
 SRC_MAIN = main.c Chip8_CPU.c
-SRC_TEST = SDL_test.c
 TARGET_MAIN = main
-TARGET_TEST = sdl_test
+TARGET_DBG = main_dbg
 SDL_PATH = ./SDL2
 SDL_LIB = $(SDL_PATH)/lib
 SDL_INCLUDE = $(SDL_PATH)/include
@@ -12,15 +11,15 @@ INCLUDES = -I$(SDL_INCLUDE)
 
 .DEFAULT_GOAL := main
 
-.PHONY: all clean main test
+.PHONY: all clean main_dbg main 
 
 all: main test
 
 $(TARGET_MAIN): $(SRC_MAIN)
 	$(CC) $(SRC_MAIN) -o $(TARGET_MAIN) $(CFLAGS) $(LDFLAGS) $(INCLUDES)
 
-$(TARGET_TEST): $(SRC_TEST)
-	$(CC) $(SRC_TEST) -o $(TARGET_TEST) $(CFLAGS) $(LDFLAGS) $(INCLUDES)
+$(TARGET_DBG): $(SRC_MAIN)
+	$(CC) $(SRC_MAIN) -o $(TARGET_DBG) $(CFLAGS) $(LDFLAGS) $(INCLUDES) -g
 
 clean:
-	rm -f $(TARGET_MAIN) $(TARGET_TEST)
+	rm -f $(TARGET_MAIN) $(TARGET_DBG)

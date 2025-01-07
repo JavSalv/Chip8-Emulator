@@ -43,28 +43,24 @@ void reset_stack(Stack *stack)
 BYTE get_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
-    ASSERT((vX <= 15 && vX >= 0), "[ERROR] Tried to acces data register V%u at PC: 0x%04x\n", vX, cpu->program_counter);
     return cpu->game_registers[vX];
 }
 
 void set_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
-    ASSERT((vX <= 15 && vX >= 0), "[ERROR] Tried to acces data register V%u at PC: 0x%04x\n", vX, cpu->program_counter);
     cpu->game_registers[vX] = (instruction & 0xFF);
 }
 
 void set_vx_value(Chip8_CPU *cpu, WORD instruction, BYTE value)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
-    ASSERT((vX <= 15 && vX >= 0), "[ERROR] Tried to acces data register V%u at PC: 0x%04x\n", vX, cpu->program_counter);
     cpu->game_registers[vX] = value;
 }
 
 BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE vY = (instruction & 0x00F0) >> 4;
-    ASSERT((vY <= 15 && vY >= 0), "[ERROR] Tried to acces data register V%u at PC: 0x%04x\n", vY, cpu->program_counter);
     return cpu->game_registers[vY];
 }
 
@@ -90,17 +86,25 @@ void load_vx(Chip8_CPU *cpu, WORD instruction)
     cpu->i_register += max + 1;
 }
 
-void wait_key(Chip8_CPU* cpu, WORD instruction)
-{
-    for(BYTE i = 0; i < 16; i++)
+void wait_key(Chip8_CPU *cpu, WORD instruction)
+{   
+
+    if(cpu->pressed_key != 16 && !cpu->keys[cpu->pressed_key])
     {
-        if(cpu->keys[i])
+        set_vx_value(cpu,instruction,cpu->pressed_key);
+        cpu->pressed_key = 16;
+        return;
+    }
+
+    for (BYTE i = 0; i < 16; i++)
+    {
+        if (cpu->keys[i])
         {
-            set_vx_value(cpu,instruction,i);
-            return;
+            cpu->pressed_key = i;
+            break;
         }
     }
-    cpu->program_counter-=2;
+    cpu->program_counter -= 2;
 }
 
 void draw_sprite(Chip8_CPU *cpu, WORD instruction)
@@ -303,12 +307,14 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         // EX9E: Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed.
         case (0xE09E):
             vx = get_vx(cpu, inst);
-            if(cpu->keys[vx]) cpu->program_counter+=2;
+            if (cpu->keys[vx])
+                cpu->program_counter += 2;
             break;
         // EXA1: Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed
         case (0xE0A1):
             vx = get_vx(cpu, inst);
-            if(!cpu->keys[vx]) cpu->program_counter+=2;
+            if (!cpu->keys[vx])
+                cpu->program_counter += 2;
             break;
         }
         break;
@@ -318,19 +324,19 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         {
         // FX07: Store the current value of the delay timer in register VX
         case (0xF007):
-            set_vx_value(cpu,inst,cpu->delay_timer);
+            set_vx_value(cpu, inst, cpu->delay_timer);
             break;
         // FX0A: Wait for a keypress and store the result in register VX
         case (0xF00A):
-            wait_key(cpu,inst);
+            wait_key(cpu, inst);
             break;
         // FX15: Set the delay timer to the value of register VX
         case (0xF015):
-            ASSERT((0), "[ERROR] Unimplemented instruction 'XXXX'\n");
+            cpu->delay_timer = get_vx(cpu, inst);
             break;
         // FX18: Set the sound timer to the value of register VX
         case (0xF018):
-            ASSERT((0), "[ERROR] Unimplemented instruction 'XXXX'\n");
+            cpu->sound_timer = get_vx(cpu, inst);
             break;
         // FX1E: Add the value stored in register VX to register I
         case (0xF01E):
@@ -339,8 +345,8 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
             break;
         // FX29: Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
         case (0xF029):
-            vx = get_vx(cpu,inst);
-            cpu->i_register = 0x50 + (5*vx);
+            vx = get_vx(cpu, inst);
+            cpu->i_register = 0x50 + (5 * vx);
             break;
         // FX33: Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2
         case (0xF033):
@@ -373,6 +379,7 @@ void cpu_reset(Chip8_CPU *cpu)
     reset_stack(&cpu->call_stack);
     cpu->i_register = 0;
     cpu->program_counter = 0x200;
+    cpu->pressed_key = 16;
 }
 
 void init_cpu(Chip8_CPU *cpu, FILE *stream)
@@ -389,5 +396,18 @@ void run_instructions(Chip8_CPU *cpu, int n_instructions)
         inst = fetch_instruction(cpu);
         // printf("0x%04x\n",inst);
         exec_instruction(cpu, inst);
+    }
+}
+
+void update_timers(Chip8_CPU *cpu)
+{
+    if (cpu->delay_timer > 0)
+    {
+        cpu->delay_timer--;
+    }
+    if (cpu->sound_timer > 0)
+    {
+        printf("BEEP\n");
+        cpu->sound_timer--;
     }
 }

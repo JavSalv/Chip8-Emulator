@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define STACK_SIZE 16
-#define CYCLES_PER_FRAME 50
+#define CYCLES_PER_FRAME 7
 
 #define ASSERT(_bool, ...)                \
     do                                    \
@@ -35,6 +35,7 @@ typedef struct
     BYTE screen_buffer[64*32];
 
     BYTE keys[16];
+    BYTE pressed_key;
 
     BYTE delay_timer;
     BYTE sound_timer;
@@ -44,3 +45,5 @@ typedef struct
 void init_cpu(Chip8_CPU* cpu, FILE* stream);
 
 void run_instructions(Chip8_CPU* cpu, int n_instructions);
+
+void update_timers(Chip8_CPU* cpu);
