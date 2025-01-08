@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     ASSERT((window != NULL), "[ERROR] Can't create SDL window: %s\n", SDL_GetError());
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
-    ASSERT((window != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
+    ASSERT((renderer != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
 
     retval = SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
     retval |= SDL_RenderSetIntegerScale(renderer, 1);

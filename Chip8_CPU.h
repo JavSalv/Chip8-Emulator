@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define STACK_SIZE 16
-#define CYCLES_PER_FRAME 7
+#define CYCLES_PER_FRAME 12
 
 #define ASSERT(_bool, ...)                \
     do                                    \

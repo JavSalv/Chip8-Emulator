@@ -61,6 +61,7 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 - [Matt Mikolay Chip8 Documentation](https://github.com/mattmikolay/chip-8/wiki)
 - [Timendus Chip8 Test Suite](https://github.com/Timendus/chip8-test-suite)
 - [Chip8 Quirks](https://chip8.gulrak.net/)
+- [Chip8 Quirks II](https://github.com/Chromatophore/HP48-Superchip)
 
 
 

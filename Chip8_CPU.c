@@ -107,24 +107,23 @@ void wait_key(Chip8_CPU *cpu, WORD instruction)
     cpu->program_counter -= 2;
 }
 
-void draw_sprite(Chip8_CPU *cpu, WORD instruction)
-{
+void draw_sprite(Chip8_CPU *cpu, WORD instruction) {
     BYTE coordX = get_vx(cpu, instruction) & 63;
     BYTE coordY = get_vy(cpu, instruction) & 31;
     cpu->game_registers[0xF] = 0;
     BYTE height = instruction & 0xF;
     BYTE pixel;
 
-    for (int yline = 0; yline < height; yline++)
-    {
+    for (int yline = 0; yline < height && (coordY + yline) < 32; yline++) {
         pixel = cpu->game_memory[cpu->i_register + yline];
-        for (int xline = 0; xline < 8; xline++)
-        {
-            if ((pixel & (0x80 >> xline)) != 0)
-            {
-                if (cpu->screen_buffer[(coordX + xline + ((coordY + yline) * 64))] == 1)
-                    cpu->game_registers[0xF] = 1;
-                cpu->screen_buffer[coordX + xline + ((coordY + yline) * 64)] ^= 1;
+        for (int xline = 0; xline < 8 && (coordX + xline) < 64; xline++) {
+            if ((pixel & (0x80 >> xline)) != 0) {
+                int pos = coordX + xline + ((coordY + yline) * 64);
+                if (pos < 2048) {
+                    if (cpu->screen_buffer[pos] == 1)
+                        cpu->game_registers[0xF] = 1;
+                    cpu->screen_buffer[pos] ^= 1;
+                }
             }
         }
     }
@@ -150,14 +149,14 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
     {
     // Instrucciones 00E0 y 00EE
     case (0x0000):
-        switch (inst & 0x000F)
+        switch (inst & 0x00FF)
         {
         // 00E0: Clear Screen
-        case (0x0000):
+        case (0x00E0):
             memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
             break;
         // 00EE: Return from a subroutine
-        case (0x000E):
+        case (0x00EE):
             return_subroutine(cpu);
             break;
         // 0000: NOP instruction.
@@ -290,7 +289,8 @@ void exec_instruction(Chip8_CPU *cpu, WORD inst)
         break;
     // BNNN: Jump to address NNN + V0
     case (0xB000):
-        cpu->program_counter += cpu->game_registers[0] + (inst & 0x0FFF);
+        //TODO: Quirk???
+        cpu->program_counter = (get_vx(cpu,inst) + (inst & 0x0FFF));
         break;
     // CXNN: Set VX to a random number with a mask of NN
     case (0xC000):
@@ -394,7 +394,7 @@ void run_instructions(Chip8_CPU *cpu, int n_instructions)
     for (int i = 0; i < n_instructions; i++)
     {
         inst = fetch_instruction(cpu);
-        // printf("0x%04x\n",inst);
+        //printf("0x%04x  0x%0x4\n",inst,cpu->program_counter-2);
         exec_instruction(cpu, inst);
     }
 }
