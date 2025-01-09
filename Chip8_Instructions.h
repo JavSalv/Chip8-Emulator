@@ -118,12 +118,12 @@ void draw_sprite(Chip8_CPU *cpu, WORD instruction)
     }
 }
 
-void OP_00E0(Chip8_CPU *cpu, WORD inst)
+void OP_00E0(Chip8_CPU *cpu)
 {
     memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
 }
 
-void OP_00EE(Chip8_CPU *cpu, WORD inst)
+void OP_00EE(Chip8_CPU *cpu)
 {
     return_subroutine(cpu);
 }

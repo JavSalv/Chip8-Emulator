@@ -4,7 +4,7 @@ TARGET_MAIN = main
 SDL_PATH = ./SDL2
 SDL_LIB = $(SDL_PATH)/lib
 SDL_INCLUDE = $(SDL_PATH)/include
-CFLAGS = -Wall -Werror -O2
+CFLAGS = -Wall -Wextra -pedantic -O2
 LDFLAGS = -Wl,-rpath=$(SDL_LIB) -L$(SDL_LIB) -l:libSDL2-2.0.so
 INCLUDES = -I$(SDL_INCLUDE)
 

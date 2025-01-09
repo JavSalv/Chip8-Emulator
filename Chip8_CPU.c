@@ -1,69 +1,88 @@
 #include "Chip8_CPU.h"
 #include "Chip8_Instructions.h"
 
-void (*I_8XYN[16])(Chip8_CPU *, WORD);
-void (*I_base[16])(Chip8_CPU *, WORD);
 
 void aux_0XXX(Chip8_CPU *cpu, WORD inst)
 {
     switch (inst & 0x00FF)
     {
-    case (0x00E0): return OP_00E0(cpu, inst);
-    case (0x00EE): return OP_00EE(cpu, inst);
-    default: return OP_NULL(cpu, inst);
+    case (0x00E0): OP_00E0(cpu); break;
+    case (0x00EE): OP_00EE(cpu); break;
+    default: OP_NULL(cpu, inst); break;
     }
 }
 
 void aux_8XYN(Chip8_CPU *cpu, WORD inst)
 {
-    I_8XYN[(inst & 0x000F)](cpu, inst);
+    switch ( inst & 0x000F)
+    {
+    case 0x0: OP_8XY0(cpu,inst); break;
+    case 0x1: OP_8XY1(cpu,inst); break;
+    case 0x2: OP_8XY2(cpu,inst); break;
+    case 0x3: OP_8XY3(cpu,inst); break;
+    case 0x4: OP_8XY4(cpu,inst); break;
+    case 0x5: OP_8XY5(cpu,inst); break;
+    case 0x6: OP_8XY6(cpu,inst); break;
+    case 0x7: OP_8XY7(cpu,inst); break;
+    case 0xe: OP_8XYE(cpu,inst); break;
+    default: OP_NULL(cpu,inst); break;
+    }
+    
 }
 
 void aux_EXYN(Chip8_CPU *cpu, WORD inst)
 {   
     switch (inst & 0x00FF)
     {
-    case (0x009E): return OP_EX9E(cpu, inst);
-    case (0x00A1): return OP_EXA1(cpu, inst);
-    default: return OP_NULL(cpu, inst);
+    case (0x009E): OP_EX9E(cpu, inst); break;
+    case (0x00A1): OP_EXA1(cpu, inst); break;
+    default: OP_NULL(cpu, inst); break;
     }
 }
+
 void aux_FXNN(Chip8_CPU *cpu, WORD inst)
 {
     switch (inst & 0x00FF)
     {
-    case 0x07: return OP_FX07(cpu, inst);
-    case 0x0A: return OP_FX0A(cpu, inst);
-    case 0x15: return OP_FX15(cpu, inst);
-    case 0x18: return OP_FX18(cpu, inst);
-    case 0x1E: return OP_FX1E(cpu, inst);
-    case 0x29: return OP_FX29(cpu, inst);
-    case 0x33: return OP_FX33(cpu, inst);
-    case 0x55: return OP_FX55(cpu, inst);
-    case 0x65: return OP_FX65(cpu, inst);
-    default: return OP_NULL(cpu, inst);
+    case 0x07: OP_FX07(cpu, inst); break;
+    case 0x0A: OP_FX0A(cpu, inst); break;
+    case 0x15: OP_FX15(cpu, inst); break;
+    case 0x18: OP_FX18(cpu, inst); break;
+    case 0x1E: OP_FX1E(cpu, inst); break;
+    case 0x29: OP_FX29(cpu, inst); break;
+    case 0x33: OP_FX33(cpu, inst); break;
+    case 0x55: OP_FX55(cpu, inst); break;
+    case 0x65: OP_FX65(cpu, inst); break;
+    default: OP_NULL(cpu, inst); break;
     }
 }
-
-void (*I_base[16])(Chip8_CPU *, WORD) =
-    {
-        aux_0XXX, OP_1NNN, OP_2NNN, OP_3XNN, OP_4XNN, OP_5XY0, OP_6XNN, OP_7XNN,
-        aux_8XYN, OP_9XY0, OP_ANNN, OP_BNNN, OP_CXNN, OP_DXXN, aux_EXYN, aux_FXNN};
-
-void (*I_8XYN[16])(Chip8_CPU *, WORD) =
-    {
-        OP_8XY0, OP_8XY1, OP_8XY2, OP_8XY3, OP_8XY4, OP_8XY5, OP_8XY6, OP_8XY7,
-        OP_NULL, OP_NULL, OP_NULL, OP_NULL, OP_NULL, OP_NULL, OP_8XYE, OP_NULL};
-
-
 
 void exec_instruction(Chip8_CPU *cpu)
 {   
     WORD instruction = cpu->game_memory[cpu->program_counter++];
     instruction <<= 8;
     instruction |= cpu->game_memory[cpu->program_counter++];    
-
-    I_base[(instruction & 0xF000) >> 12](cpu, instruction);
+    
+    switch ((instruction & 0xF000) >> 12)
+    {
+    case 0x0: aux_0XXX(cpu,instruction); break;
+    case 0x1: OP_1NNN(cpu,instruction); break;
+    case 0x2: OP_2NNN(cpu,instruction); break;
+    case 0x3: OP_3XNN(cpu,instruction); break;
+    case 0x4: OP_4XNN(cpu,instruction); break;
+    case 0x5: OP_5XY0(cpu,instruction); break;
+    case 0x6: OP_6XNN(cpu,instruction); break;
+    case 0x7: OP_7XNN(cpu,instruction); break;
+    case 0x8: aux_8XYN(cpu,instruction); break;
+    case 0x9: OP_9XY0(cpu,instruction); break;
+    case 0xa: OP_ANNN(cpu,instruction); break;
+    case 0xb: OP_BNNN(cpu,instruction); break;
+    case 0xc: OP_CXNN(cpu,instruction); break;
+    case 0xd: OP_DXXN(cpu,instruction); break;
+    case 0xe: aux_EXYN(cpu,instruction); break;
+    case 0xf: aux_FXNN(cpu,instruction); break;
+    default: OP_NULL(cpu,instruction); break;
+    }
 }
 
 void cpu_reset(Chip8_CPU *cpu)
