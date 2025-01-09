@@ -25,6 +25,13 @@
 typedef uint8_t BYTE;
 typedef uint16_t WORD;
 
+typedef enum
+{
+    CHIP_8,
+    SUPER_CHIP,
+    XO_CHIP
+}Target_Platform;
+
 typedef struct
 {
     WORD stack[STACK_SIZE];
@@ -45,6 +52,8 @@ typedef struct
 
     BYTE delay_timer;
     BYTE sound_timer;
+
+    Target_Platform target;
 } Chip8_CPU;
 
 static const BYTE digits[] = {
@@ -69,7 +78,7 @@ static const BYTE digits[] = {
 };
 
 
-void init_cpu(Chip8_CPU *cpu, FILE *stream);
+void init_cpu(Chip8_CPU *cpu, FILE *stream, Target_Platform target);
 
 void run_instructions(Chip8_CPU *cpu, int n_instructions);
 
