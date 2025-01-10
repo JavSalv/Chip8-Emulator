@@ -5,38 +5,38 @@
 
 // OP-CODE Guide from https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Instruction-Set
 
-void return_subroutine(Chip8_CPU *cpu)
+static inline void return_subroutine(Chip8_CPU *cpu)
 {
     ASSERT((cpu->call_stack.n_elements > 0), "[ERROR] Tried to pop empty stack at PC: 0x%04x\n", cpu->program_counter);
     cpu->program_counter = cpu->call_stack.stack[--cpu->call_stack.n_elements];
 }
 
-void jump_subroutine(Chip8_CPU *cpu, WORD address)
+static inline void jump_subroutine(Chip8_CPU *cpu, WORD address)
 {
     ASSERT((cpu->call_stack.n_elements < STACK_SIZE - 1), "[ERROR] Tried to push full stack at PC: 0x%04x\n", cpu->program_counter);
     cpu->call_stack.stack[cpu->call_stack.n_elements++] = cpu->program_counter;
     cpu->program_counter = address;
 }
 
-void reset_stack(Stack *stack)
+static inline void reset_stack(Stack *stack)
 {
     memset(stack->stack, 0, sizeof(stack->stack));
     stack->n_elements = 0;
 }
 
-BYTE get_vx(Chip8_CPU *cpu, WORD instruction)
+static inline BYTE get_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
     return cpu->game_registers[vX];
 }
 
-void set_vx(Chip8_CPU *cpu, WORD instruction)
+static inline void set_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
     cpu->game_registers[vX] = (instruction & 0xFF);
 }
 
-void set_vx_value(Chip8_CPU *cpu, WORD instruction, BYTE value)
+static inline void set_vx_value(Chip8_CPU *cpu, WORD instruction, BYTE value)
 {
     BYTE vX = (instruction & 0x0F00) >> 8;
     cpu->game_registers[vX] = value;
@@ -48,7 +48,7 @@ BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
     return cpu->game_registers[vY];
 }
 
-void dump_vx(Chip8_CPU *cpu, WORD instruction)
+static inline void dump_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE max = (instruction & 0x0F00) >> 8;
 
@@ -56,10 +56,11 @@ void dump_vx(Chip8_CPU *cpu, WORD instruction)
     {
         cpu->game_memory[cpu->i_register + x] = cpu->game_registers[x];
     }
-    cpu->i_register += max + 1;
+    if (cpu->target == CHIP8)
+        cpu->i_register += max + 1;
 }
 
-void load_vx(Chip8_CPU *cpu, WORD instruction)
+static inline void load_vx(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE max = (instruction & 0x0F00) >> 8;
 
@@ -67,10 +68,11 @@ void load_vx(Chip8_CPU *cpu, WORD instruction)
     {
         cpu->game_registers[x] = cpu->game_memory[cpu->i_register + x];
     }
-    cpu->i_register += max + 1;
+    if (cpu->target == CHIP8)
+        cpu->i_register += max + 1;
 }
 
-void wait_key(Chip8_CPU *cpu, WORD instruction)
+static inline void wait_key(Chip8_CPU *cpu, WORD instruction)
 {
 
     if (cpu->pressed_key != 16 && !cpu->keys[cpu->pressed_key])
@@ -91,57 +93,69 @@ void wait_key(Chip8_CPU *cpu, WORD instruction)
     cpu->program_counter -= 2;
 }
 
-void draw_sprite(Chip8_CPU *cpu, WORD instruction)
+static inline void draw_sprite_CHIP8(Chip8_CPU *cpu, WORD instruction)
 {
-    BYTE coordX = get_vx(cpu, instruction) & 63;
-    BYTE coordY = get_vy(cpu, instruction) & 31;
-    cpu->game_registers[0xF] = 0;
-    BYTE height = instruction & 0xF;
-    BYTE pixel;
+    BYTE coordX = (get_vx(cpu, instruction) & 63) * 2;  // 61 = 123/2 para mantener dentro de límites
+    BYTE coordY = (get_vy(cpu, instruction) & 31) * 2;  // 31 = 63/2 para mantener dentro de límites
+    BYTE height = (instruction & 0xF);
+    BYTE row;
 
-    for (int yline = 0; yline < height && (coordY + yline) < 32; yline++)
+    cpu->game_registers[0xF] = 0;
+
+    for (int yline = 0; yline < height && (coordY + (yline * 2)) < 64; yline++)
     {
-        pixel = cpu->game_memory[cpu->i_register + yline];
-        for (int xline = 0; xline < 8 && (coordX + xline) < 64; xline++)
+        row = cpu->game_memory[cpu->i_register + yline];
+        for (int xpixel = 0; xpixel < 8 && (coordX + (xpixel * 2)) < 128; xpixel++)
         {
-            if ((pixel & (0x80 >> xline)) != 0)
+            if ((row & (0x80 >> xpixel)) != 0)
             {
-                int pos = coordX + xline + ((coordY + yline) * 64);
-                if (pos < 2048)
+                // Calculamos las posiciones para los 4 píxeles (2x2)
+                int pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * 128);
+                
+                // Verificamos si alguno de los píxeles ya está encendido
+                if (pos1 + 129 < (128 * 64))  // Aseguramos que estamos dentro del buffer
                 {
-                    if (cpu->screen_buffer[pos] == 1)
-                        cpu->game_registers[0xF] = 1;
-                    cpu->screen_buffer[pos] ^= 1;
+                    if (cpu->screen_buffer[pos1] == 1)
+                    {
+                        cpu->game_registers[0xF] = cpu->screen_buffer[pos1];
+                    }
+                    
+                    cpu->screen_buffer[pos1] ^= 1;
+                    cpu->screen_buffer[pos1 + 1] ^= 1;
+                    cpu->screen_buffer[pos1 + 128] ^= 1;
+                    cpu->screen_buffer[pos1 + 129] ^= 1;
                 }
             }
         }
     }
+    cpu->dirty_flag = 1;
 }
 
-void OP_00E0(Chip8_CPU *cpu)
+static inline void OP_00E0(Chip8_CPU *cpu)
 {
+
     memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
 }
 
-void OP_00EE(Chip8_CPU *cpu)
+static inline void OP_00EE(Chip8_CPU *cpu)
 {
     return_subroutine(cpu);
 }
 
 // Instrucción Jump
-void OP_1NNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_1NNN(Chip8_CPU *cpu, WORD inst)
 {
     cpu->program_counter = (inst & 0x0fff);
 }
 
 // Call subroutine
-void OP_2NNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_2NNN(Chip8_CPU *cpu, WORD inst)
 {
     jump_subroutine(cpu, (inst & 0x0fff));
 }
 
 // Skip if equal
-void OP_3XNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_3XNN(Chip8_CPU *cpu, WORD inst)
 {
     BYTE value = get_vx(cpu, inst);
     BYTE NN = inst & 0xFF;
@@ -150,7 +164,7 @@ void OP_3XNN(Chip8_CPU *cpu, WORD inst)
 }
 
 // Skip if not equal
-void OP_4XNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_4XNN(Chip8_CPU *cpu, WORD inst)
 {
     BYTE value = get_vx(cpu, inst);
     BYTE NN = inst & 0xFF;
@@ -159,7 +173,7 @@ void OP_4XNN(Chip8_CPU *cpu, WORD inst)
 }
 
 // Skip if registers equal
-void OP_5XY0(Chip8_CPU *cpu, WORD inst)
+static inline void OP_5XY0(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
@@ -168,48 +182,62 @@ void OP_5XY0(Chip8_CPU *cpu, WORD inst)
 }
 
 // Set register
-void OP_6XNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_6XNN(Chip8_CPU *cpu, WORD inst)
 {
     set_vx(cpu, inst);
 }
 
 // Add value
-void OP_7XNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_7XNN(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE value = (inst & 0x00FF);
     set_vx_value(cpu, inst, (vx + value));
 }
 
-// Instrucciones 8XXX
-void OP_8XY0(Chip8_CPU *cpu, WORD inst)
+static inline void OP_8XY0(Chip8_CPU *cpu, WORD inst)
 {
     BYTE value = get_vy(cpu, inst);
     set_vx_value(cpu, inst, value);
 }
 
-void OP_8XY1(Chip8_CPU *cpu, WORD inst)
+/* 8XY1: Set VX to VX OR VY
+    - CHIP 8: Resets VF register
+*/
+static inline void OP_8XY1(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
     set_vx_value(cpu, inst, (vx | vy));
+    if (cpu->target == CHIP8)
+        cpu->game_registers[0xF] = 0;
 }
 
-void OP_8XY2(Chip8_CPU *cpu, WORD inst)
+/* 8XY2: Set VX to VX AND VY
+    - CHIP 8: Resets VF register
+*/
+static inline void OP_8XY2(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
     set_vx_value(cpu, inst, (vx & vy));
+    if (cpu->target == CHIP8)
+        cpu->game_registers[0xF] = 0;
 }
 
-void OP_8XY3(Chip8_CPU *cpu, WORD inst)
+/* 8XY3: Set VX to VX XOR VY
+    - CHIP 8: Resets VF register
+*/
+static inline void OP_8XY3(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
     set_vx_value(cpu, inst, (vx ^ vy));
+    if (cpu->target == CHIP8)
+        cpu->game_registers[0xF] = 0;
 }
 
-void OP_8XY4(Chip8_CPU *cpu, WORD inst)
+static inline void OP_8XY4(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
@@ -219,7 +247,7 @@ void OP_8XY4(Chip8_CPU *cpu, WORD inst)
         cpu->game_registers[0xF] = 1;
 }
 
-void OP_8XY5(Chip8_CPU *cpu, WORD inst)
+static inline void OP_8XY5(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
@@ -229,14 +257,14 @@ void OP_8XY5(Chip8_CPU *cpu, WORD inst)
         cpu->game_registers[0xF] = 0;
 }
 
-void OP_8XY6(Chip8_CPU *cpu, WORD inst)
+static inline void OP_8XY6(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vy = get_vy(cpu, inst);
     set_vx_value(cpu, inst, (vy >> 1));
     cpu->game_registers[0xF] = (vy & 0x1);
 }
 
-void OP_8XY7(Chip8_CPU *cpu, WORD inst)
+static inline void OP_8XY7(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
@@ -246,7 +274,7 @@ void OP_8XY7(Chip8_CPU *cpu, WORD inst)
         cpu->game_registers[0xF] = 0;
 }
 
-void OP_8XYE(Chip8_CPU *cpu, WORD inst)
+static inline void OP_8XYE(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vy = get_vy(cpu, inst);
     set_vx_value(cpu, inst, (vy << 1));
@@ -254,7 +282,7 @@ void OP_8XYE(Chip8_CPU *cpu, WORD inst)
 }
 
 // Skip if registers not equal
-void OP_9XY0(Chip8_CPU *cpu, WORD inst)
+static inline void OP_9XY0(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
@@ -263,31 +291,46 @@ void OP_9XY0(Chip8_CPU *cpu, WORD inst)
 }
 
 // Set index register
-void OP_ANNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_ANNN(Chip8_CPU *cpu, WORD inst)
 {
     cpu->i_register = (inst & 0x0FFF);
 }
 
-// Jump with offset
-void OP_BNNN(Chip8_CPU *cpu, WORD inst)
+// BNNN: Jump to address NNN + V0
+static inline void OP_BNNN(Chip8_CPU *cpu, WORD inst)
 {
-    cpu->program_counter = (get_vx(cpu, inst) + (inst & 0x0FFF));
+    cpu->program_counter = cpu->game_registers[0x0] + (inst & 0x0FFF);
 }
 
 // Random
-void OP_CXNN(Chip8_CPU *cpu, WORD inst)
+static inline void OP_CXNN(Chip8_CPU *cpu, WORD inst)
 {
     set_vx_value(cpu, inst, (rand() & (inst & 0xFF)));
 }
 
-// Draw sprite
-void OP_DXXN(Chip8_CPU *cpu, WORD inst)
+/*DXXN: Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise.
+    - CHIP 8: Only `lores` display. Clips sprites.
+    - SCHIPC: `lores` & `hires` display.
+    - XO-CHIP: lores` & `hires` display. Wraps all sprites.
+*/
+static inline void OP_DXXN(Chip8_CPU *cpu, WORD inst)
 {
-    draw_sprite(cpu, inst);
+
+    // TODO:Cambiar esto a puntero a funcion almacenado en Chip8_CPU.
+    switch (cpu->target)
+    {
+    case CHIP8:
+        draw_sprite_CHIP8(cpu, inst);
+        break;
+    case SCHIPC:
+        break;
+    case XOCHIP:
+        break;
+    }
 }
 
 // Skip if key pressed
-void OP_EX9E(Chip8_CPU *cpu, WORD inst)
+static inline void OP_EX9E(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     if (cpu->keys[vx])
@@ -295,7 +338,7 @@ void OP_EX9E(Chip8_CPU *cpu, WORD inst)
 }
 
 // Skip if key not pressed
-void OP_EXA1(Chip8_CPU *cpu, WORD inst)
+static inline void OP_EXA1(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     if (!cpu->keys[vx])
@@ -303,45 +346,45 @@ void OP_EXA1(Chip8_CPU *cpu, WORD inst)
 }
 
 // Get delay timer
-void OP_FX07(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX07(Chip8_CPU *cpu, WORD inst)
 {
     set_vx_value(cpu, inst, cpu->delay_timer);
 }
 
 // Wait for key press
-void OP_FX0A(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX0A(Chip8_CPU *cpu, WORD inst)
 {
     wait_key(cpu, inst);
 }
 
 // Set delay timer
-void OP_FX15(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX15(Chip8_CPU *cpu, WORD inst)
 {
     cpu->delay_timer = get_vx(cpu, inst);
 }
 
 // Set sound timer
-void OP_FX18(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX18(Chip8_CPU *cpu, WORD inst)
 {
     cpu->sound_timer = get_vx(cpu, inst);
 }
 
 // Add to index
-void OP_FX1E(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX1E(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     cpu->i_register += vx;
 }
 
 // Set index to sprite
-void OP_FX29(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX29(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     cpu->i_register = 0x50 + (5 * vx); // Max 0x9f
 }
 
 // Store BCD
-void OP_FX33(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX33(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     cpu->game_memory[cpu->i_register] = vx / 100;
@@ -349,19 +392,25 @@ void OP_FX33(Chip8_CPU *cpu, WORD inst)
     cpu->game_memory[cpu->i_register + 2] = vx % 10;
 }
 
-// Store registers
-void OP_FX55(Chip8_CPU *cpu, WORD inst)
+/* FX55: Store the values of registers V0 to VX inclusive in memory starting at address I
+    - CHIP 8: I is set to I + X + 1 after operation
+    - SCHIPC & XO-CHIP: I stays the same.
+*/
+static inline void OP_FX55(Chip8_CPU *cpu, WORD inst)
 {
     dump_vx(cpu, inst);
 }
 
-// Load registers
-void OP_FX65(Chip8_CPU *cpu, WORD inst)
+/* FX65: Fill registers V0 to VX inclusive with the values stored in memory starting at address I
+    - CHIP 8: I is set to I + X + 1 after operation
+    - SCHIPC & XO-CHIP: I stays the same.
+*/
+static inline void OP_FX65(Chip8_CPU *cpu, WORD inst)
 {
     load_vx(cpu, inst);
 }
 
-void OP_NULL(Chip8_CPU *cpu, WORD inst)
+static inline void OP_NULL(Chip8_CPU *cpu, WORD inst)
 {
     ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
 }

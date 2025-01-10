@@ -101,6 +101,7 @@ void init_cpu(Chip8_CPU *cpu, FILE *stream, Target_Platform target)
 {
     cpu_reset(cpu);
     cpu->target = target;
+    cpu->mode = LORES;
     fread(&cpu->game_memory[0x200], sizeof(BYTE), 0xfff, stream);
 }
 

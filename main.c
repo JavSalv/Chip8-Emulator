@@ -9,8 +9,8 @@
 
 #define FPS_TARGET 60 // Dont change this or cpu timing will get weird.
 
-#define RENDER_WIDTH 64
-#define RENDER_HEIGHT 32
+#define RENDER_WIDTH 128
+#define RENDER_HEIGHT 64
 
 // #define BACKGROUND 0x99660000
 // #define FOREGROUND 0xFFCC0000
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
 
-    init_cpu(&cpu, fd, CHIP_8);
+    init_cpu(&cpu, fd, CHIP8);
     fclose(fd);
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
@@ -151,8 +151,11 @@ int main(int argc, char *argv[])
         // Termina input
         // Ejecuto ciclo
         run_instructions(&cpu, CYCLES_PER_FRAME);
-        cpu_to_screen(cpu.screen_buffer, screen_buffer);
         update_timers(&cpu);
+        if(cpu.dirty_flag){
+            cpu_to_screen(cpu.screen_buffer, screen_buffer);
+            cpu.dirty_flag = 0;
+        }
 
         // Muestro en pantalla
         SDL_RenderClear(renderer);

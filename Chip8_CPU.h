@@ -27,10 +27,16 @@ typedef uint16_t WORD;
 
 typedef enum
 {
-    CHIP_8,
-    SUPER_CHIP,
-    XO_CHIP
+    CHIP8,
+    SCHIPC,
+    XOCHIP
 }Target_Platform;
+
+typedef enum
+{
+    LORES,
+    HIRES
+}Display_Mode;
 
 typedef struct
 {
@@ -45,7 +51,10 @@ typedef struct
     WORD i_register;
     WORD program_counter;
     Stack call_stack;
-    BYTE screen_buffer[64 * 32];
+
+    BYTE screen_buffer[128 * 64];
+    BYTE dirty_flag;
+    Display_Mode mode;
 
     BYTE keys[16];
     BYTE pressed_key;
