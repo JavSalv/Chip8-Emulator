@@ -55,6 +55,7 @@ typedef struct
     BYTE screen_buffer[128 * 64];
     BYTE dirty_flag;
     Display_Mode mode;
+    BYTE bitplane;
 
     BYTE keys[16];
     BYTE pressed_key;

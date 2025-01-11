@@ -78,7 +78,7 @@ void exec_instruction(Chip8_CPU *cpu)
     case 0xa: OP_ANNN(cpu,instruction); break;
     case 0xb: OP_BNNN(cpu,instruction); break;
     case 0xc: OP_CXNN(cpu,instruction); break;
-    case 0xd: OP_DXXN(cpu,instruction); break;
+    case 0xd: OP_DXYN(cpu,instruction); break;
     case 0xe: aux_EXYN(cpu,instruction); break;
     case 0xf: aux_FXNN(cpu,instruction); break;
     default: OP_NULL(cpu,instruction); break;
