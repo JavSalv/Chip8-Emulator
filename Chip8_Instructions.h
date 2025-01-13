@@ -42,30 +42,32 @@ static inline void set_vx_value(Chip8_CPU *cpu, WORD instruction, BYTE value)
     cpu->game_registers[vX] = value;
 }
 
-static inline BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
+BYTE get_vy(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE vY = (instruction & 0x00F0) >> 4;
     return cpu->game_registers[vY];
 }
 
-static inline void dump_vxy(Chip8_CPU *cpu, BYTE min, BYTE max)
+static inline void dump_vx(Chip8_CPU *cpu, WORD instruction)
 {
-    for (BYTE x = min; x <= max; x++)
+    BYTE max = (instruction & 0x0F00) >> 8;
+
+    for (int x = 0; x <= max; x++)
     {
         cpu->game_memory[cpu->i_register + x] = cpu->game_registers[x];
     }
-
     if (cpu->target == CHIP8)
         cpu->i_register += max + 1;
 }
 
-static inline void load_vxy(Chip8_CPU *cpu, BYTE min, BYTE max)
+static inline void load_vx(Chip8_CPU *cpu, WORD instruction)
 {
-    for (BYTE x = min; x <= max; x++)
+    BYTE max = (instruction & 0x0F00) >> 8;
+
+    for (int x = 0; x <= max; x++)
     {
         cpu->game_registers[x] = cpu->game_memory[cpu->i_register + x];
     }
-
     if (cpu->target == CHIP8)
         cpu->i_register += max + 1;
 }
@@ -100,28 +102,28 @@ static inline void draw_sprite_CHIP8(Chip8_CPU *cpu, WORD instruction)
 
     cpu->game_registers[0xF] = 0;
 
-    for (BYTE yline = 0; yline < height && (coordY + (yline * 2)) < 64; yline++)
+    for (int yline = 0; yline < height && (coordY + (yline * 2)) < 64; yline++)
     {
         row = cpu->game_memory[cpu->i_register + yline];
-        for (BYTE xpixel = 0; xpixel < 8 && (coordX + (xpixel * 2)) < 128; xpixel++)
+        for (int xpixel = 0; xpixel < 8 && (coordX + (xpixel * 2)) < 128; xpixel++)
         {
             if ((row & (0x80 >> xpixel)) != 0)
             {
                 // Calculamos las posiciones para los 4 píxeles (2x2)
-                WORD pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * 128);
+                int pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * 128);
 
                 // Verificamos si alguno de los píxeles ya está encendido
                 if (pos1 + 129 < (128 * 64)) // Aseguramos que estamos dentro del buffer
                 {
-                    if (cpu->screen_plane1[pos1] == 1)
+                    if (cpu->screen_buffer[pos1] == 1)
                     {
-                        cpu->game_registers[0xF] = 1;
+                        cpu->game_registers[0xF] = cpu->screen_buffer[pos1];
                     }
 
-                    cpu->screen_plane1[pos1] ^= 1;
-                    cpu->screen_plane1[pos1 + 1] ^= 1;
-                    cpu->screen_plane1[pos1 + 128] ^= 1;
-                    cpu->screen_plane1[pos1 + 129] ^= 1;
+                    cpu->screen_buffer[pos1] ^= 1;
+                    cpu->screen_buffer[pos1 + 1] ^= 1;
+                    cpu->screen_buffer[pos1 + 128] ^= 1;
+                    cpu->screen_buffer[pos1 + 129] ^= 1;
                 }
             }
         }
@@ -132,72 +134,32 @@ static inline void draw_sprite_CHIP8(Chip8_CPU *cpu, WORD instruction)
 /* 00CN: Scroll screen content down N pixel.
     - CHIP 8: Unimplemented.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Only selected bit planes are scrolled.
+    - XO-CHIP: Only selected bit planes are scrolled. //TODO
 */
 static inline void OP_00CN(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE amount = inst & 0x00F;
-
-    if (cpu->target == CHIP8)
-        ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
-
-    if (amount == 0 || amount >= 64)
-        return;
-
-    if (cpu->bitplane & 1)
-    {
-        memmove(cpu->screen_plane1 + (amount * 128), cpu->screen_plane1, (64 - amount) * 128);
-        memset(cpu->screen_plane1, 0, amount * 128);
-    }
-    if (cpu->bitplane & 2)
-    {
-        memmove(cpu->screen_plane2 + (amount * 128), cpu->screen_plane2, (64 - amount) * 128);
-        memset(cpu->screen_plane2, 0, amount * 128);
-    }
-
-    cpu->dirty_flag = 1;
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
 }
 
 /* O0DN: Scroll screen content up N pixel.
     - CHIP 8: Unimplemented.
     - SCHIPC: Unimplemented.
-    - XO-CHIP: Only selected bit planes are scrolled.
+    - XO-CHIP: Only selected bit planes are scrolled. //TODO
 */
 static inline void OP_00DN(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE amount = inst & 0x00F;
-
-    if (cpu->target != XOCHIP)
-        ASSERT((0), "[ERROR] XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: %s\n", inst, cpu->program_counter, (cpu->target == 0) ? "Chip-8" : "SUPER CHIP");
-
-    if (amount == 0 || amount >= 64)
-        return;
-
-    if (cpu->bitplane & 1)
-    {
-        memmove(cpu->screen_plane1, cpu->screen_plane1 + (amount * 128), (64 - amount) * 128);
-        memset(cpu->screen_plane1 + (amount * 128), 0, amount * 128);
-    }
-    if (cpu->bitplane & 2)
-    {
-        memmove(cpu->screen_plane2, cpu->screen_plane2 + (amount * 128), (64 - amount) * 128);
-        memset(cpu->screen_plane2 + (amount * 128), 0, amount * 128);
-    }
-
-    cpu->dirty_flag = 1;
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
 }
 
 /* 00E0: Clears the screen.
     - CHIP 8: Normal behaviour.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Only selected bit planes are cleared.
+    - XO-CHIP: Only selected bit planes are cleared. //TODO
 */
 static inline void OP_00E0(Chip8_CPU *cpu)
 {
-    if (cpu->bitplane & 1)
-        memset(cpu->screen_plane1, 0, sizeof(cpu->screen_plane1));
-    if (cpu->bitplane & 2)
-        memset(cpu->screen_plane2, 0, sizeof(cpu->screen_plane2));
+
+    memset(cpu->screen_buffer, 0, sizeof(cpu->screen_buffer));
 }
 
 // 00EE: Return from a subroutine.
@@ -213,33 +175,7 @@ static inline void OP_00EE(Chip8_CPU *cpu)
 */
 static inline void OP_00FB(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE amount = inst & 0x00F;
-
-    if (cpu->target == CHIP8)
-        ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
-
-    if (amount == 0 || amount >= 128)
-        return;
-
-    if (cpu->bitplane & 1)
-    {
-        for (BYTE y = 0; y < 64; y++)
-        {
-            BYTE *row = cpu->screen_plane1 + (64 * y);
-            memmove(row + 1, row, 127);
-            row[0] = 0;
-        }
-    }
-    if (cpu->bitplane & 2)
-    {
-        for (BYTE y = 0; y < 64; y++)
-        {
-            BYTE *row = cpu->screen_plane2 + (64 * y);
-            memmove(row + 1, row, 127);
-            row[0] = 0;
-        }
-    }
-    cpu->dirty_flag = 1;
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 /* O0FC: Scroll screen content left N pixel.
@@ -249,33 +185,7 @@ static inline void OP_00FB(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_00FC(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE amount = inst & 0x00F;
-
-    if (cpu->target == CHIP8)
-        ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
-
-    if (amount == 0 || amount >= 128)
-        return;
-
-    if (cpu->bitplane & 1)
-    {
-        for (BYTE y = 0; y < 64; y++)
-        {
-            BYTE *row = cpu->screen_plane1 + (64 * y);
-            memmove(row, row + 1, 127);
-            row[127] = 0;
-        }
-    }
-    if (cpu->bitplane & 2)
-    {
-        for (BYTE y = 0; y < 64; y++)
-        {
-            BYTE *row = cpu->screen_plane2 + (64 * y);
-            memmove(row, row + 1, 127);
-            row[127] = 0;
-        }
-    }
-    cpu->dirty_flag = 1;
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 /* O0FD: Exit interpreter.
@@ -285,9 +195,7 @@ static inline void OP_00FC(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_00FD(Chip8_CPU *cpu, WORD inst)
 {
-    UNUSED(cpu);
-    UNUSED(inst);
-    exit(EXIT_SUCCESS); // TODO: otra manera de hacer esto?
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 /* O0FE: Switch to lores mode (64x32).
@@ -297,10 +205,7 @@ static inline void OP_00FD(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_00FE(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target == CHIP8)
-        ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
-
-    cpu->mode = LORES;
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 /* O0FF: Switch to hires mode (128x64).
@@ -310,10 +215,7 @@ static inline void OP_00FE(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_00FF(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target == CHIP8)
-        ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
-
-    cpu->mode = HIRES;
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 // 1NNN: Jump to address `NNN`.
@@ -331,82 +233,40 @@ static inline void OP_2NNN(Chip8_CPU *cpu, WORD inst)
 /* 3XNN: Skip the following instruction if the value of register ``VX equals `NN`.
     - CHIP 8: Normal behaviour.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Skips 4 bytes if next instruction is F000.
+    - XO-CHIP: Skips 4 bytes if next instruction is F000. //TODO
 */
 static inline void OP_3XNN(Chip8_CPU *cpu, WORD inst)
 {
-
     BYTE value = get_vx(cpu, inst);
     BYTE NN = inst & 0xFF;
     if (value == NN)
-    {
         cpu->program_counter += 2;
-
-        if (cpu->target == XOCHIP)
-        {
-            WORD next_inst = (cpu->game_memory[cpu->program_counter - 2] << 8) |
-                             cpu->game_memory[cpu->program_counter - 1];
-
-            if (next_inst == 0xF000)
-            {
-                cpu->program_counter += 2;
-            }
-        }
-    }
 }
 
 /* 4XNN: Skip the following instruction if the value of register `VX` is not equal to `NN`.
     - CHIP 8: Normal behaviour.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Skips 4 bytes if next instruction is F000.
+    - XO-CHIP: Skips 4 bytes if next instruction is F000. //TODO
 */
 static inline void OP_4XNN(Chip8_CPU *cpu, WORD inst)
 {
     BYTE value = get_vx(cpu, inst);
     BYTE NN = inst & 0xFF;
-
     if (value != NN)
-    {
         cpu->program_counter += 2;
-
-        if (cpu->target == XOCHIP)
-        {
-            WORD next_inst = (cpu->game_memory[cpu->program_counter - 2] << 8) |
-                             cpu->game_memory[cpu->program_counter - 1];
-
-            if (next_inst == 0xF000)
-            {
-                cpu->program_counter += 2;
-            }
-        }
-    }
 }
 
 /* 5XY0: Skip the following instruction if the value of register `VX` is equal to the value of register `VY`.
     - CHIP 8: Normal behaviour.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Skips 4 bytes if next instruction is F000.
+    - XO-CHIP: Skips 4 bytes if next instruction is F000. //TODO
 */
 static inline void OP_5XY0(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
     BYTE vy = get_vy(cpu, inst);
-
     if (vx == vy)
-    {
         cpu->program_counter += 2;
-
-        if (cpu->target == XOCHIP)
-        {
-            WORD next_inst = (cpu->game_memory[cpu->program_counter - 2] << 8) |
-                             cpu->game_memory[cpu->program_counter - 1];
-
-            if (next_inst == 0xF000)
-            {
-                cpu->program_counter += 2;
-            }
-        }
-    }
 }
 
 /* 5XY2: Write registers vX to vY to memory pointed to by I. I stays the same.
@@ -416,13 +276,7 @@ static inline void OP_5XY0(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_5XY2(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target != XOCHIP)
-        ASSERT((0), "[ERROR] XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: %s\n", inst, cpu->program_counter, (cpu->target == 0) ? "Chip-8" : "SUPER CHIP");
-
-    BYTE min = get_vx(cpu, inst);
-    BYTE max = get_vy(cpu, inst);
-
-    dump_vxy(cpu, min, max);
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 /* 5XY3: Load registers vX to vY from memory pointed to by I. I stays the same.
@@ -432,13 +286,7 @@ static inline void OP_5XY2(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_5XY3(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target != XOCHIP)
-        ASSERT((0), "[ERROR] XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: %s\n", inst, cpu->program_counter, (cpu->target == 0) ? "Chip-8" : "SUPER CHIP");
-
-    BYTE min = get_vx(cpu, inst);
-    BYTE max = get_vy(cpu, inst);
-
-    load_vxy(cpu, min, max);
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 // 6XNN: Store number NN in register VX.
@@ -526,7 +374,11 @@ static inline void OP_8XY5(Chip8_CPU *cpu, WORD inst)
         cpu->game_registers[0xF] = 0;
 }
 
-// 8XY6: Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift. VY is unchanged.
+/* 8XY6: Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift. VY is unchanged.
+    - CHIP 8: Normal behaviour.
+    - SCHIPC: Ignore VY, just shift VX. //TODO
+    - XO-CHIP: Ignore VY, just shift VX.
+*/
 static inline void OP_8XY6(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vy = get_vy(cpu, inst);
@@ -546,7 +398,10 @@ static inline void OP_8XY7(Chip8_CPU *cpu, WORD inst)
 }
 
 /* 8XYE: Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift. VY is unchanged.
- */
+    - CHIP 8: Normal behaviour.
+    - SCHIPC: Ignore VY, just shift VX. //TODO
+    - XO-CHIP: Ignore VY, just shift VX.
+*/
 static inline void OP_8XYE(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vy = get_vy(cpu, inst);
@@ -584,7 +439,7 @@ static inline void OP_CXNN(Chip8_CPU *cpu, WORD inst)
 /*DXYN: Draw a 8xN sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise.
     - CHIP 8: Only `lores` display. Clips sprites.
     - SCHIPC: `lores` & `hires` display. //TODO
-    - XO-CHIP: lores` & `hires` display. Wraps all sprites. Only draws on selected bitplane.
+    - XO-CHIP: lores` & `hires` display. Wraps all sprites.
 */
 static inline void OP_DXYN(Chip8_CPU *cpu, WORD inst)
 {
@@ -605,7 +460,7 @@ static inline void OP_DXYN(Chip8_CPU *cpu, WORD inst)
 /*DXX0: Draw a 16x16 sprite at position VX, VY with sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise.
     - CHIP 8: Unimplemented.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Normal behaviour. Wraps all sprites. Only draws on selected bitplane.
+    - XO-CHIP: Normal behaviour. Wraps all sprites.
 */
 static inline void OP_DXY0(Chip8_CPU *cpu, WORD inst)
 {
@@ -615,53 +470,25 @@ static inline void OP_DXY0(Chip8_CPU *cpu, WORD inst)
 /* EX9E: Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed.
     - CHIP 8: Normal behaviour.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Skips 4 bytes if next instruction is F000.
+    - XO-CHIP: Skips 4 bytes if next instruction is F000. //TODO
 */
 static inline void OP_EX9E(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
-
     if (cpu->keys[vx])
-    {
         cpu->program_counter += 2;
-
-        if (cpu->target == XOCHIP)
-        {
-            WORD next_inst = (cpu->game_memory[cpu->program_counter - 2] << 8) |
-                             cpu->game_memory[cpu->program_counter - 1];
-
-            if (next_inst == 0xF000)
-            {
-                cpu->program_counter += 2;
-            }
-        }
-    }
 }
 
 /* EX9E: Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed.
     - CHIP 8: Normal behaviour.
     - SCHIPC: Normal behaviour.
-    - XO-CHIP: Skips 4 bytes if next instruction is F000.
+    - XO-CHIP: Skips 4 bytes if next instruction is F000. //TODO
 */
 static inline void OP_EXA1(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
-
     if (!cpu->keys[vx])
-    {
         cpu->program_counter += 2;
-
-        if (cpu->target == XOCHIP)
-        {
-            WORD next_inst = (cpu->game_memory[cpu->program_counter - 2] << 8) |
-                             cpu->game_memory[cpu->program_counter - 1];
-
-            if (next_inst == 0xF000)
-            {
-                cpu->program_counter += 2;
-            }
-        }
-    }
 }
 
 /* F000: Assign next 16 bit word to I, and set PC behind it, this is a four byte instruction.
@@ -671,31 +498,17 @@ static inline void OP_EXA1(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_F000(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target != XOCHIP)
-        ASSERT((0), "[ERROR] XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: %s\n", inst, cpu->program_counter, (cpu->target == 0) ? "Chip-8" : "SUPER CHIP");
-
-    cpu->i_register = (cpu->game_memory[++cpu->program_counter] << 8) | cpu->game_memory[++cpu->program_counter];
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
-/* FN01: Select bit planes to draw on when drawing with DXY0/DXYN.
+/* FX01: Select bit planes to draw on when drawing with DXY0/DXYN.
     - CHIP 8: Unimplemented.
     - SCHIPC: Unimplemented.
     - XO-CHIP: Normal behaviour.
 */
-static inline void OP_FN01(Chip8_CPU *cpu, WORD inst)
+static inline void OP_FX01(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target != XOCHIP)
-        ASSERT((0), "[ERROR] XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: %s\n", inst, cpu->program_counter, (cpu->target == 0) ? "Chip-8" : "SUPER CHIP");
-
-    BYTE plane = (inst & 0x0F00) >> 8;
-
-    if(plane < 1 || plane > 3)
-    {
-        ASSERT((0), "[ERROR] Invalid bitplane: %d. \"0x%04x\" at PC: 0x%04x\n", plane, inst, cpu->program_counter);
-    }
-
-    cpu->bitplane = plane;
-    
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter); // TODO
 }
 
 /* F002: Load 16 bytes audio pattern pointed to by I into audio pattern buffer.
@@ -743,7 +556,7 @@ static inline void OP_FX1E(Chip8_CPU *cpu, WORD inst)
 static inline void OP_FX29(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
-    cpu->i_register = FONT5ADDRESS + (5 * vx); // Max 0x9f
+    cpu->i_register = 0x50 + (5 * vx); // Max 0x9f
 }
 
 /* FX30: Set I to the memory address of the sprite data corresponding to the 10-lines high hexadecimal digit stored in register VX.
@@ -753,12 +566,7 @@ static inline void OP_FX29(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_FX30(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target == CHIP8)
-        ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
-
-    BYTE vx = get_vx(cpu, inst);
-
-    cpu->i_register = FONT10ADDRESS + (10 * vx);
+    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
 }
 
 // FX33: Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2.
@@ -787,8 +595,7 @@ static inline void OP_FX3A(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_FX55(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE vx = get_vx(cpu, inst);
-    dump_vxy(cpu, 0, vx);
+    dump_vx(cpu, inst);
 }
 
 /* FX65: Fill registers V0 to VX inclusive with the values stored in memory starting at address I
@@ -798,28 +605,7 @@ static inline void OP_FX55(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_FX65(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE vx = get_vx(cpu, inst);
-    load_vxy(cpu, 0, vx);
-}
-
-/* FX75: Store the content of the registers v0 to vX into flags storage (outside of the addressable ram).
-    - CHIP 8: Unimplemented.
-    - SCHIPC: Unimplemented.
-    - XO-CHIP: Normal behaviour.
-*/
-static inline void OP_FX75(Chip8_CPU *cpu, WORD inst)
-{
-    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
-}
-
-/* FX85: Store the content of the registers v0 to vX into flags storage (outside of the addressable ram).
-    - CHIP 8: Unimplemented.
-    - SCHIPC: Unimplemented.
-    - XO-CHIP: Normal behaviour.
-*/
-static inline void OP_FX85(Chip8_CPU *cpu, WORD inst)
-{
-    ASSERT((0), "[ERROR] Unimplemented instruction \"0x%04x\" at PC: 0x%04x\n", inst, cpu->program_counter);
+    load_vx(cpu, inst);
 }
 
 static inline void OP_NULL(Chip8_CPU *cpu, WORD inst)
