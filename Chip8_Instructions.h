@@ -91,7 +91,7 @@ static inline void wait_key(Chip8_CPU *cpu, WORD instruction)
     cpu->program_counter -= 2;
 }
 
-static inline void draw_sprite_LORES(Chip8_CPU *cpu, WORD instruction)
+static inline void draw_sprite_lores_clipping(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE coordX = (get_vx(cpu, instruction) & 63) * 2;
     BYTE coordY = (get_vy(cpu, instruction) & 31) * 2;
@@ -108,6 +108,42 @@ static inline void draw_sprite_LORES(Chip8_CPU *cpu, WORD instruction)
             if (row & (0x80 >> xpixel))
             {
                 WORD pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * CHIP8_SCREEN_WIDTH);
+
+                if (pos1 + 129 < (CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT))
+                {
+                    if (cpu->screen_plane1[pos1] == 1)
+                    {
+                        cpu->game_registers[0xF] = 1;
+                    }
+
+                    cpu->screen_plane1[pos1] ^= 1;
+                    cpu->screen_plane1[pos1 + 1] ^= 1;
+                    cpu->screen_plane1[pos1 + CHIP8_SCREEN_WIDTH] ^= 1;
+                    cpu->screen_plane1[pos1 + 129] ^= 1;
+                }
+            }
+        }
+    }
+    cpu->dirty_flag = 1;
+}
+
+static inline void draw_sprite_LORES_warping(Chip8_CPU *cpu, WORD instruction)
+{
+    BYTE coordX = (get_vx(cpu, instruction) & 63) * 2;
+    BYTE coordY = (get_vy(cpu, instruction) & 31) * 2;
+    BYTE height = (instruction & 0xF);
+    BYTE row;
+
+    cpu->game_registers[0xF] = 0;
+
+    for (BYTE yline = 0; yline < height; yline++)
+    {
+        row = cpu->game_memory[cpu->i_register + yline];
+        for (BYTE xpixel = 0; xpixel < 8; xpixel++)
+        {
+            if (row & (0x80 >> xpixel))
+            {
+                WORD pos1 = ((coordX + (xpixel * 2)) % CHIP8_SCREEN_WIDTH)  + (((coordY + (yline * 2)) % CHIP8_SCREEN_HEIGHT) * CHIP8_SCREEN_WIDTH);
 
                 if (pos1 + 129 < (CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT))
                 {
@@ -157,7 +193,7 @@ static inline void draw_sprite_big(Chip8_CPU *cpu, BYTE coordX, BYTE coordY)
     cpu->dirty_flag = 1;
 }
 
-static inline void draw_sprite_hires(Chip8_CPU *cpu, WORD instruction)
+static inline void draw_sprite_hires_clipping(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE coordX = get_vx(cpu, instruction) & 127;
     BYTE coordY = get_vy(cpu, instruction) & 63;
@@ -195,6 +231,46 @@ static inline void draw_sprite_hires(Chip8_CPU *cpu, WORD instruction)
     }
     cpu->dirty_flag = 1;
 }
+
+static inline void draw_sprite_hires_warping(Chip8_CPU *cpu, WORD instruction)
+{
+    BYTE coordX = get_vx(cpu, instruction) & 127;
+    BYTE coordY = get_vy(cpu, instruction) & 63;
+    BYTE height = (instruction & 0xF);
+    BYTE row;
+
+    if(height == 0){
+        draw_sprite_big(cpu,coordX,coordY);
+        return;
+    }
+
+
+    cpu->game_registers[0xF] = 0;
+
+    for (BYTE yline = 0; yline < height; yline++)
+    {
+        row = cpu->game_memory[cpu->i_register + yline];
+        for (BYTE xpixel = 0; xpixel < 8; xpixel++)
+        {
+            if ((row & (0x80 >> xpixel)) != 0)
+            {
+                WORD pos1 = ((coordX + xpixel) % CHIP8_SCREEN_WIDTH) + (((coordY + yline) % CHIP8_SCREEN_HEIGHT) * CHIP8_SCREEN_WIDTH);
+
+                if (pos1 + 129 < (CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT))
+                {
+                    if (cpu->screen_plane1[pos1] == 1)
+                    {
+                        cpu->game_registers[0xF] = 1;
+                    }
+
+                    cpu->screen_plane1[pos1] ^= 1;
+                }
+            }
+        }
+    }
+    cpu->dirty_flag = 1;
+}
+
 
 
 
@@ -673,9 +749,6 @@ static inline void OP_BNNN(Chip8_CPU *cpu, WORD inst)
 static inline void OP_CXNN(Chip8_CPU *cpu, WORD inst)
 {   
     set_vx_value(cpu, inst, (rand() & (inst & 0xFF)));
-
-    printf("%u\n", get_vx(cpu,inst));
-
 }
 
 /*DXYN: Draw a 8xN sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise.
@@ -690,13 +763,13 @@ static inline void OP_DXYN(Chip8_CPU *cpu, WORD inst)
     switch (cpu->target)
     {
     case CHIP8:
-        draw_sprite_LORES(cpu, inst);
+        draw_sprite_lores_clipping(cpu, inst);
         break;
     case SCHIPC:
-        (cpu->mode == LORES) ? draw_sprite_LORES(cpu, inst) : draw_sprite_hires(cpu, inst);
+        (cpu->mode == LORES) ? draw_sprite_lores_clipping(cpu, inst) : draw_sprite_hires_clipping(cpu, inst);
         break;
     case XOCHIP:
-        (cpu->mode == LORES) ? draw_sprite_LORES(cpu, inst) : draw_sprite_hires(cpu, inst);
+        (cpu->mode == LORES) ? draw_sprite_LORES_warping(cpu, inst) : draw_sprite_hires_warping(cpu, inst);
         break;
     }
 }

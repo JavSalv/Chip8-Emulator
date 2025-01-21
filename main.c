@@ -1,9 +1,11 @@
+#define _POSIX_C_SOURCE 2
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
-#include <time.h>
+#include <unistd.h>
 
 #include "SDL2/SDL.h"
 #include "Chip8_CPU.h"
@@ -96,16 +98,87 @@ int main(int argc, char *argv[])
 {
     int retval;
     int running = 1;
+
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *screen_texture;
     uint32_t *screen_buffer;
+    char title[255];
 
     Chip8_CPU cpu = {0};
-    const char *filename = (argc == 2) ? argv[1] : "test_roms/5-quirks.ch8";
-    char title[255];
-    snprintf(title, sizeof(title), "Chip8 Emulator - ROM: %s", filename);
+    Target_Platform target = XOCHIP;
+    uint32_t cpf = CHIP8_CYCLES_PER_FRAME;
+    const char *filename;
 
+    char c;
+    while ((c = getopt(argc, argv, "ht:c:")) != -1)
+    {
+        switch (c)
+        {
+        case 't': // Emulation Target
+            if (strncmp(optarg, "Chip8", strlen(optarg)) == 0)
+            {
+                target = CHIP8;
+            }
+            else if (strncmp(optarg, "SuperChip", strlen(optarg)) == 0)
+            {
+                target = SCHIPC;
+            }
+            else if (strncmp(optarg, "XO-Chip", strlen(optarg)) == 0)
+            {
+                target = XOCHIP;
+            }
+            else
+            {
+                fprintf(stderr, "Unknown Chip8 variant '%s'.\nPossible options: Chip8 | SuperChip | XO-Chip \n", optarg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'c': // Cycles per frame
+            cpf = atoi(optarg);
+            if (cpf <= 0)
+            {
+                fputs("-c value must be greater than 0\n", stderr);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'h': // Help
+            puts("A simple Chip 8 emulator/interpreter.\n"
+                "\n"
+                "Usage:\n"
+                "    chip8 [OPTIONS] rom_filepath\n"
+                "\n"
+                "ARGS:\n"
+                "    <rom_filepath>\n"
+                "            Path to the .ch8 ROM you want to emulate.\n"
+                "\n"
+                "OPTIONS:\n"
+                "    -t <TARGET>\n"
+                "            Select the variant you want the emulator to target.\n"
+                "            Possible targets: Chip8 | SuperChip | XO-Chip.\n"
+                "    -c <CYCLES>\n"
+                "            Speed you want the emulator to run, measured in\n"
+                "            Cycles per Frame. One cycle equals one instruction.\n"
+                "            Recommended value: 15-30.\n"
+                "    -h\n"
+                "            Displays this text.");
+                exit(EXIT_SUCCESS);
+            break;
+        default:
+            fprintf(stderr, "Usage: %s [-t target] [-c cycles] ROM\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (optind >= argc)
+    {
+        fputs("Missing ROM filepath\n", stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    filename = argv[optind];
+
+    snprintf(title, sizeof(title), "Chip8 Emulator - ROM: %s", filename);
     FILE *fd = fopen(filename, "rb");
     ASSERT((fd != NULL), "[ERROR] \"%s\" No such file or directory.\n", filename);
 
@@ -115,7 +188,7 @@ int main(int argc, char *argv[])
 
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
     ASSERT((window != NULL), "[ERROR] Can't create SDL window: %s\n", SDL_GetError());
-    
+
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
     ASSERT((renderer != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
 
@@ -131,11 +204,10 @@ int main(int argc, char *argv[])
 
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
 
-    init_cpu(&cpu, fd, SCHIPC);
+    init_cpu(&cpu, fd, target);
     fclose(fd);
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-    srand(time(NULL));
 
     while (running)
     {
