@@ -5,14 +5,12 @@ CHIP-8 es un lenguaje interpretado creado a mediados de los años 70, diseñado 
 
 ## 📸 Capturas de pantalla
 
-### Space Invaders
-![Space Invaders](./images/SpaceInvaders.png)
+![Space Invaders](./images/Space%20Invaders.gif)
 
-### Pong
-![Pong](./images/Pong.png)
+![Pong](./images/Gradsim.gif)
 
 ### Tetris
-![Tetris](./images/Tetris.png)
+![Tetris](./images/Pong.png)
 
 
 ## 🎮 Controles
@@ -31,9 +29,9 @@ Teclado Original | Teclado Actual
 # ⚙️ Testing
 
 El emulador ha sido testeado usando la [Suite de tests de Timendus](https://github.com/Timendus/chip8-test-suite).
-Es capaz de pasar los tests relacionados con el set de instrucciones básico de Chip8.
+Es capaz de pasar todos los test de la suite, incluidos los relacionados con las diferentes variantes.
 
-![Tests](images/Test_suite.png)
+![Tests](images/Test%20Suite.gif)
 
 
 ## 🚀 Compilación e instalación
@@ -44,8 +42,8 @@ WIP
 
 ## 📝 TODOs
 
-- [ ] Implementar soporte para variantes de Chip8 (SuperChipC, XO-Chip, etc.)
-- [ ] Cargar configuración desde un fichero
+- [X] Implementar soporte para variantes de Chip8 (SuperChipC, XO-Chip, etc.)
+- [ ] Cargar configuración desde un fichero/línea de comandos
 - [ ] Mejorar la precisión del timing
 - [ ] Añadir herramientas de debug (breakpoints, estado de registros, etc.)
 
