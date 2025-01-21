@@ -602,12 +602,17 @@ static inline void OP_8XY5(Chip8_CPU *cpu, WORD inst)
         cpu->game_registers[0xF] = 0;
 }
 
-// 8XY6: Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift. VY is unchanged.
+// 8XY6: Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift. VY is unchanged. //TODO: Comentario
 static inline void OP_8XY6(Chip8_CPU *cpu, WORD inst)
-{
-    BYTE vy = get_vy(cpu, inst);
-    set_vx_value(cpu, inst, (vy >> 1));
-    cpu->game_registers[0xF] = (vy & 0x1);
+{   
+    BYTE reg;
+    if(cpu->target == CHIP8)
+        reg = get_vy(cpu, inst);
+    else
+        reg = get_vx(cpu,inst);
+
+    set_vx_value(cpu, inst, (reg >> 1));
+    cpu->game_registers[0xF] = (reg & 0x1);
 }
 
 // 8XY7: Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur.
@@ -621,13 +626,18 @@ static inline void OP_8XY7(Chip8_CPU *cpu, WORD inst)
         cpu->game_registers[0xF] = 0;
 }
 
-/* 8XYE: Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift. VY is unchanged.
+/* 8XYE: Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift. VY is unchanged. //TODO: Comentario
  */
 static inline void OP_8XYE(Chip8_CPU *cpu, WORD inst)
 {
-    BYTE vy = get_vy(cpu, inst);
-    set_vx_value(cpu, inst, (vy << 1));
-    cpu->game_registers[0xF] = (vy & 0x80) >> 7;
+    BYTE reg;
+    if(cpu->target == CHIP8)
+        reg = get_vy(cpu, inst);
+    else
+        reg = get_vx(cpu,inst);
+
+    set_vx_value(cpu, inst, (reg >> 1));
+    cpu->game_registers[0xF] = (reg & 0x80) >> 7;
 }
 
 // 9XY0: Skip the following instruction if the value of register VX is not equal to the value of register VY.
