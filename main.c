@@ -9,13 +9,15 @@
 
 #define FPS_TARGET 60 // Dont change this or cpu timing will get weird.
 
-#define RENDER_WIDTH 128
-#define RENDER_HEIGHT 64
-
 // #define BACKGROUND 0x99660000
 // #define FOREGROUND 0xFFCC0000
 #define BACKGROUND 0xF9FFB300
 #define FOREGROUND 0x3D802600
+
+#define PLANE0 BACKGROUND
+#define PLANE1 FOREGROUND
+#define PLANE2 0x00000000
+#define PLANE3 0xFF00FFFF
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 512
@@ -26,6 +28,8 @@ const struct
     BYTE hex_value;
 } KEY_MAPPINGS[] = {
     {SDLK_1, 0x1}, {SDLK_2, 0x2}, {SDLK_3, 0x3}, {SDLK_4, 0xC}, {SDLK_q, 0x4}, {SDLK_w, 0x5}, {SDLK_e, 0x6}, {SDLK_r, 0xD}, {SDLK_a, 0x7}, {SDLK_s, 0x8}, {SDLK_d, 0x9}, {SDLK_f, 0xE}, {SDLK_z, 0xA}, {SDLK_x, 0x0}, {SDLK_c, 0xB}, {SDLK_v, 0xF}};
+
+const uint32_t colors[] = {PLANE0, PLANE1, PLANE2, PLANE3};
 
 void key_event_handler(Chip8_CPU *cpu, SDL_Event *event)
 {
@@ -79,11 +83,11 @@ void frame_end(FpsDeltaTime *fpsdt)
     }
 }
 
-void cpu_to_screen(BYTE *cpu_buffer, uint32_t *screen_buffer)
+void cpu_to_screen(BYTE *screen_plane1, BYTE *screen_plane2, uint32_t *screen_buffer)
 {
-    for (int i = 0; i < RENDER_WIDTH * RENDER_HEIGHT; i++)
+    for (int i = 0; i < CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT; i++)
     {
-        screen_buffer[i] = cpu_buffer[i] ? FOREGROUND : BACKGROUND;
+        screen_buffer[i] = colors[(screen_plane2[i] << 1) | screen_plane1[i]];
     }
 }
 
@@ -112,19 +116,19 @@ int main(int argc, char *argv[])
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
     ASSERT((renderer != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
 
-    retval = SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
+    retval = SDL_RenderSetLogicalSize(renderer, CHIP8_SCREEN_WIDTH, CHIP8_SCREEN_HEIGHT);
     retval |= SDL_RenderSetIntegerScale(renderer, 1);
     ASSERT((retval == 0), "[ERROR] Can't set SDL render settings: %s\n", SDL_GetError());
 
-    screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
+    screen_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, CHIP8_SCREEN_WIDTH, CHIP8_SCREEN_HEIGHT);
     ASSERT((screen_texture != NULL), "[ERROR] Can't create screen surface: %s\n", SDL_GetError());
 
-    screen_buffer = calloc(RENDER_HEIGHT * RENDER_WIDTH, sizeof(uint32_t));
+    screen_buffer = calloc(CHIP8_SCREEN_HEIGHT * CHIP8_SCREEN_WIDTH, sizeof(uint32_t));
     ASSERT((screen_buffer != NULL), "[ERROR] Can't allocate space for screen buffer : %s\n", strerror(errno));
 
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
 
-    init_cpu(&cpu, fd, CHIP8);
+    init_cpu(&cpu, fd, SCHIPC);
     fclose(fd);
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
@@ -150,16 +154,17 @@ int main(int argc, char *argv[])
         }
         // Termina input
         // Ejecuto ciclo
-        run_instructions(&cpu, CYCLES_PER_FRAME);
+        run_instructions(&cpu);
         update_timers(&cpu);
-        if(cpu.dirty_flag){
-            cpu_to_screen(cpu.screen_buffer, screen_buffer);
+        if (cpu.dirty_flag)
+        {
+            cpu_to_screen(cpu.screen_plane1, cpu.screen_plane2, screen_buffer);
             cpu.dirty_flag = 0;
         }
 
         // Muestro en pantalla
         SDL_RenderClear(renderer);
-        SDL_UpdateTexture(screen_texture, NULL, screen_buffer, RENDER_WIDTH * sizeof(uint32_t));
+        SDL_UpdateTexture(screen_texture, NULL, screen_buffer, CHIP8_SCREEN_WIDTH * sizeof(uint32_t));
         SDL_RenderCopy(renderer, screen_texture, NULL, NULL);
         SDL_RenderPresent(renderer);
 
