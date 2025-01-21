@@ -9,7 +9,6 @@ CHIP-8 es un lenguaje interpretado creado a mediados de los años 70, diseñado 
 
 ![Pong](./images/Gradsim.gif)
 
-### Tetris
 ![Tetris](./images/Pong.png)
 
 
