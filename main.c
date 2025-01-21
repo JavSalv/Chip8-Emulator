@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
 
-    init_cpu(&cpu, fd, SCHIPC);
+    init_cpu(&cpu, fd, XOCHIP);
     fclose(fd);
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);

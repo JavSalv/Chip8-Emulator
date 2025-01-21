@@ -55,7 +55,7 @@ static inline void dump_vxy(Chip8_CPU *cpu, BYTE min, BYTE max)
         cpu->game_memory[cpu->i_register + x] = cpu->game_registers[x];
     }
 
-    if (cpu->target == CHIP8)
+    if (cpu->target != SCHIPC)
         cpu->i_register += max + 1;
 }
 
@@ -66,7 +66,7 @@ static inline void load_vxy(Chip8_CPU *cpu, BYTE min, BYTE max)
         cpu->game_registers[x] = cpu->game_memory[cpu->i_register + x];
     }
 
-    if (cpu->target == CHIP8)
+    if (cpu->target != SCHIPC)
         cpu->i_register += max + 1;
 }
 
@@ -127,7 +127,7 @@ static inline void draw_sprite_LORES(Chip8_CPU *cpu, WORD instruction)
     cpu->dirty_flag = 1;
 }
 
-static inline void draw_sprite_hires(Chip8_CPU* cpu, WORD instruction)
+static inline void draw_sprite_hires(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE coordX = get_vx(cpu, instruction) & 127;
     BYTE coordY = get_vy(cpu, instruction) & 63;
@@ -160,7 +160,7 @@ static inline void draw_sprite_hires(Chip8_CPU* cpu, WORD instruction)
     cpu->dirty_flag = 1;
 }
 
-// Draw 16x16 sprite on hires mode.
+// Draw 16x16 sprite on hires mode. //TODO: Está mal
 static inline void draw_sprite_big(Chip8_CPU *cpu, WORD instruction)
 {
     BYTE coordX = (get_vx(cpu, instruction) & 63) * 2;
@@ -192,9 +192,6 @@ static inline void draw_sprite_big(Chip8_CPU *cpu, WORD instruction)
     }
     cpu->dirty_flag = 1;
 }
-
-
-
 
 /* 00CN: Scroll screen content down N pixel.
     - CHIP 8: Unimplemented.
@@ -291,7 +288,8 @@ static inline void OP_00FB(Chip8_CPU *cpu, WORD inst)
     if (cpu->target == CHIP8)
         ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
 
-    if(cpu->mode == LORES) amount = 8;
+    if (cpu->mode == LORES)
+        amount = 8;
 
     if (cpu->bitplane & 1)
     {
@@ -320,13 +318,14 @@ static inline void OP_00FB(Chip8_CPU *cpu, WORD inst)
     - XO-CHIP: Only selected bit planes are scrolled.
 */
 static inline void OP_00FC(Chip8_CPU *cpu, WORD inst)
-{   
+{
     BYTE amount = 4;
 
     if (cpu->target == CHIP8)
         ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
 
-    if(cpu->mode == LORES) amount = 8;
+    if (cpu->mode == LORES)
+        amount = 8;
 
     if (cpu->bitplane & 1)
     {
@@ -604,12 +603,12 @@ static inline void OP_8XY5(Chip8_CPU *cpu, WORD inst)
 
 // 8XY6: Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift. VY is unchanged. //TODO: Comentario
 static inline void OP_8XY6(Chip8_CPU *cpu, WORD inst)
-{   
+{
     BYTE reg;
-    if(cpu->target == CHIP8)
-        reg = get_vy(cpu, inst);
+    if (cpu->target == SCHIPC)
+        reg = get_vx(cpu, inst);
     else
-        reg = get_vx(cpu,inst);
+        reg = get_vy(cpu, inst);
 
     set_vx_value(cpu, inst, (reg >> 1));
     cpu->game_registers[0xF] = (reg & 0x1);
@@ -631,12 +630,12 @@ static inline void OP_8XY7(Chip8_CPU *cpu, WORD inst)
 static inline void OP_8XYE(Chip8_CPU *cpu, WORD inst)
 {
     BYTE reg;
-    if(cpu->target == CHIP8)
-        reg = get_vy(cpu, inst);
+    if (cpu->target == SCHIPC)
+        reg = get_vx(cpu, inst);
     else
-        reg = get_vx(cpu,inst);
+        reg = get_vy(cpu, inst);
 
-    set_vx_value(cpu, inst, (reg >> 1));
+    set_vx_value(cpu, inst, (reg << 1));
     cpu->game_registers[0xF] = (reg & 0x80) >> 7;
 }
 
@@ -662,10 +661,10 @@ static inline void OP_ANNN(Chip8_CPU *cpu, WORD inst)
 */
 static inline void OP_BNNN(Chip8_CPU *cpu, WORD inst)
 {
-    if (cpu->target == CHIP8)
-        cpu->program_counter = cpu->game_registers[0x0] + (inst & 0x0FFF);
-    else
+    if (cpu->target == SCHIPC)
         cpu->program_counter = get_vx(cpu, inst) + (inst & 0x0FFF);
+    else
+        cpu->program_counter = cpu->game_registers[0x0] + (inst & 0x0FFF);
 }
 
 // CXNN: Set VX to a random number with a mask of NN.
@@ -690,7 +689,9 @@ static inline void OP_DXYN(Chip8_CPU *cpu, WORD inst)
         break;
     case SCHIPC:
         (cpu->mode == LORES) ? draw_sprite_LORES(cpu, inst) : draw_sprite_hires(cpu, inst);
+        break;
     case XOCHIP:
+        (cpu->mode == LORES) ? draw_sprite_LORES(cpu, inst) : draw_sprite_hires(cpu, inst);
         break;
     }
 }
