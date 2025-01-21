@@ -100,16 +100,16 @@ static inline void draw_sprite_LORES(Chip8_CPU *cpu, WORD instruction)
 
     cpu->game_registers[0xF] = 0;
 
-    for (BYTE yline = 0; yline < height && (coordY + (yline * 2)) < 64; yline++)
+    for (BYTE yline = 0; yline < height && (coordY + (yline * 2)) < CHIP8_SCREEN_HEIGHT; yline++)
     {
         row = cpu->game_memory[cpu->i_register + yline];
-        for (BYTE xpixel = 0; xpixel < 8 && (coordX + (xpixel * 2)) < 128; xpixel++)
+        for (BYTE xpixel = 0; xpixel < 8 && (coordX + (xpixel * 2)) < CHIP8_SCREEN_WIDTH; xpixel++)
         {
-            if ((row & (0x80 >> xpixel)) != 0)
+            if (row & (0x80 >> xpixel))
             {
-                WORD pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * 128);
+                WORD pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * CHIP8_SCREEN_WIDTH);
 
-                if (pos1 + 129 < (128 * 64))
+                if (pos1 + 129 < (CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT))
                 {
                     if (cpu->screen_plane1[pos1] == 1)
                     {
@@ -118,8 +118,38 @@ static inline void draw_sprite_LORES(Chip8_CPU *cpu, WORD instruction)
 
                     cpu->screen_plane1[pos1] ^= 1;
                     cpu->screen_plane1[pos1 + 1] ^= 1;
-                    cpu->screen_plane1[pos1 + 128] ^= 1;
+                    cpu->screen_plane1[pos1 + CHIP8_SCREEN_WIDTH] ^= 1;
                     cpu->screen_plane1[pos1 + 129] ^= 1;
+                }
+            }
+        }
+    }
+    cpu->dirty_flag = 1;
+}
+
+
+static inline void draw_sprite_big(Chip8_CPU *cpu, BYTE coordX, BYTE coordY)
+{
+    WORD row;
+    cpu->game_registers[0xF] = 0;
+
+    for (BYTE yline = 0; yline < 16 && (coordY + yline) < CHIP8_SCREEN_HEIGHT; yline++)
+    {
+        row = (cpu->game_memory[cpu->i_register + yline * 2] << 8) |  cpu->game_memory[cpu->i_register + yline * 2 + 1];
+        for (BYTE xpixel = 0; xpixel < 16 && (coordX + xpixel) < CHIP8_SCREEN_WIDTH; xpixel++)
+        {
+            if (row & (0x8000 >> xpixel))
+            {
+                WORD pos1 = coordX + xpixel + ((coordY + yline) * CHIP8_SCREEN_WIDTH);
+
+                if (pos1 + 129 < (CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT))
+                {
+                    if (cpu->screen_plane1[pos1] == 1)
+                    {
+                        cpu->game_registers[0xF] = 1;
+                    }
+
+                    cpu->screen_plane1[pos1] ^= 1;
                 }
             }
         }
@@ -134,18 +164,24 @@ static inline void draw_sprite_hires(Chip8_CPU *cpu, WORD instruction)
     BYTE height = (instruction & 0xF);
     BYTE row;
 
+    if(height == 0){
+        draw_sprite_big(cpu,coordX,coordY);
+        return;
+    }
+
+
     cpu->game_registers[0xF] = 0;
 
-    for (BYTE yline = 0; yline < height && (coordY + yline) < 64; yline++)
+    for (BYTE yline = 0; yline < height && (coordY + yline) < CHIP8_SCREEN_HEIGHT; yline++)
     {
         row = cpu->game_memory[cpu->i_register + yline];
-        for (BYTE xpixel = 0; xpixel < 8 && (coordX + xpixel) < 128; xpixel++)
+        for (BYTE xpixel = 0; xpixel < 8 && (coordX + xpixel) < CHIP8_SCREEN_WIDTH; xpixel++)
         {
             if ((row & (0x80 >> xpixel)) != 0)
             {
-                WORD pos1 = coordX + xpixel + ((coordY + yline) * 128);
+                WORD pos1 = coordX + xpixel + ((coordY + yline) * CHIP8_SCREEN_WIDTH);
 
-                if (pos1 + 129 < (128 * 64))
+                if (pos1 + 129 < (CHIP8_SCREEN_WIDTH * CHIP8_SCREEN_HEIGHT))
                 {
                     if (cpu->screen_plane1[pos1] == 1)
                     {
@@ -160,38 +196,8 @@ static inline void draw_sprite_hires(Chip8_CPU *cpu, WORD instruction)
     cpu->dirty_flag = 1;
 }
 
-// Draw 16x16 sprite on hires mode. //TODO: Está mal
-static inline void draw_sprite_big(Chip8_CPU *cpu, WORD instruction)
-{
-    BYTE coordX = (get_vx(cpu, instruction) & 63) * 2;
-    BYTE coordY = (get_vy(cpu, instruction) & 31) * 2;
-    BYTE row;
 
-    cpu->game_registers[0xF] = 0;
 
-    for (BYTE yline = 0; yline < 16 && (coordY + (yline * 2)) < 64; yline++)
-    {
-        row = cpu->game_memory[cpu->i_register + yline];
-        for (BYTE xpixel = 0; xpixel < 16 && (coordX + (xpixel * 2)) < 128; xpixel++)
-        {
-            if ((row & (0x80 >> xpixel)) != 0)
-            {
-                WORD pos1 = coordX + (xpixel * 2) + ((coordY + (yline * 2)) * 128);
-
-                if (pos1 + 129 < (128 * 64))
-                {
-                    if (cpu->screen_plane1[pos1] == 1)
-                    {
-                        cpu->game_registers[0xF] = 1;
-                    }
-
-                    cpu->screen_plane1[pos1] ^= 1;
-                }
-            }
-        }
-    }
-    cpu->dirty_flag = 1;
-}
 
 /* 00CN: Scroll screen content down N pixel.
     - CHIP 8: Unimplemented.
@@ -208,18 +214,15 @@ static inline void OP_00CN(Chip8_CPU *cpu, WORD inst)
     if (cpu->target == CHIP8)
         ASSERT((0), "[ERROR] SUPER CHIP/XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: CHIP-8\n", inst, cpu->program_counter);
 
-    if (amount == 0 || amount >= 64)
-        return;
-
     if (cpu->bitplane & 1)
     {
-        memmove(cpu->screen_plane1 + (amount * 128), cpu->screen_plane1, (64 - amount) * 128);
-        memset(cpu->screen_plane1, 0, amount * 128);
+        memmove(cpu->screen_plane1 + (amount * CHIP8_SCREEN_WIDTH), cpu->screen_plane1, (CHIP8_SCREEN_HEIGHT - amount) * CHIP8_SCREEN_WIDTH);
+        memset(cpu->screen_plane1, 0, amount * CHIP8_SCREEN_WIDTH);
     }
     if (cpu->bitplane & 2)
     {
-        memmove(cpu->screen_plane2 + (amount * 128), cpu->screen_plane2, (64 - amount) * 128);
-        memset(cpu->screen_plane2, 0, amount * 128);
+        memmove(cpu->screen_plane2 + (amount * CHIP8_SCREEN_WIDTH), cpu->screen_plane2, (CHIP8_SCREEN_HEIGHT - amount) * CHIP8_SCREEN_WIDTH);
+        memset(cpu->screen_plane2, 0, amount * CHIP8_SCREEN_WIDTH);
     }
 
     cpu->dirty_flag = 1;
@@ -234,24 +237,23 @@ static inline void OP_00DN(Chip8_CPU *cpu, WORD inst)
 {
     BYTE amount = inst & 0x00F;
 
-    if (cpu->mode == LORES)
-        amount *= 2;
-
     if (cpu->target != XOCHIP)
         ASSERT((0), "[ERROR] XO-CHIP instruction \"0x%04x\" at PC: 0x%04x. Current target: %s\n", inst, cpu->program_counter, (cpu->target == 0) ? "Chip-8" : "SUPER CHIP");
 
-    if (amount == 0 || amount >= 64)
-        return;
+
+    if (cpu->mode == LORES)
+        amount *= 2;
+
 
     if (cpu->bitplane & 1)
     {
-        memmove(cpu->screen_plane1, cpu->screen_plane1 + (amount * 128), (64 - amount) * 128);
-        memset(cpu->screen_plane1 + (amount * 128), 0, amount * 128);
+        memmove(cpu->screen_plane1, cpu->screen_plane1 + (amount * CHIP8_SCREEN_WIDTH), (CHIP8_SCREEN_HEIGHT - amount) * CHIP8_SCREEN_WIDTH);
+        memset(cpu->screen_plane1 + (amount * CHIP8_SCREEN_WIDTH), 0, amount * CHIP8_SCREEN_WIDTH);
     }
     if (cpu->bitplane & 2)
     {
-        memmove(cpu->screen_plane2, cpu->screen_plane2 + (amount * 128), (64 - amount) * 128);
-        memset(cpu->screen_plane2 + (amount * 128), 0, amount * 128);
+        memmove(cpu->screen_plane2, cpu->screen_plane2 + (amount * CHIP8_SCREEN_WIDTH), (CHIP8_SCREEN_HEIGHT - amount) * CHIP8_SCREEN_WIDTH);
+        memset(cpu->screen_plane2 + (amount * CHIP8_SCREEN_WIDTH), 0, amount * CHIP8_SCREEN_WIDTH);
     }
 
     cpu->dirty_flag = 1;
@@ -669,8 +671,11 @@ static inline void OP_BNNN(Chip8_CPU *cpu, WORD inst)
 
 // CXNN: Set VX to a random number with a mask of NN.
 static inline void OP_CXNN(Chip8_CPU *cpu, WORD inst)
-{
+{   
     set_vx_value(cpu, inst, (rand() & (inst & 0xFF)));
+
+    printf("%u\n", get_vx(cpu,inst));
+
 }
 
 /*DXYN: Draw a 8xN sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise.
@@ -838,7 +843,7 @@ static inline void OP_FX1E(Chip8_CPU *cpu, WORD inst)
 static inline void OP_FX29(Chip8_CPU *cpu, WORD inst)
 {
     BYTE vx = get_vx(cpu, inst);
-    cpu->i_register = FONT5ADDRESS + (5 * vx); // Max 0x9f
+    cpu->i_register = SMALL_FONT_ADDRESS + (5 * vx); // Max 0x9f
 }
 
 /* FX30: Set I to the memory address of the sprite data corresponding to the 10-lines high hexadecimal digit stored in register VX.
@@ -853,7 +858,7 @@ static inline void OP_FX30(Chip8_CPU *cpu, WORD inst)
 
     BYTE vx = get_vx(cpu, inst);
 
-    cpu->i_register = FONT10ADDRESS + (10 * vx);
+    cpu->i_register = BIG_FONT_ADDRESS + (10 * vx);
 }
 
 // FX33: Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and I + 2.

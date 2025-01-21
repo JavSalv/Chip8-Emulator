@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 
 #include "SDL2/SDL.h"
 #include "Chip8_CPU.h"
@@ -102,6 +103,8 @@ int main(int argc, char *argv[])
 
     Chip8_CPU cpu = {0};
     const char *filename = (argc == 2) ? argv[1] : "test_roms/5-quirks.ch8";
+    char title[255];
+    snprintf(title, sizeof(title), "Chip8 Emulator - ROM: %s", filename);
 
     FILE *fd = fopen(filename, "rb");
     ASSERT((fd != NULL), "[ERROR] \"%s\" No such file or directory.\n", filename);
@@ -110,9 +113,9 @@ int main(int argc, char *argv[])
     retval = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     ASSERT((retval == 0), "[ERROR] Can't initialize SDL: %s\n", SDL_GetError());
 
-    window = SDL_CreateWindow("Chip8 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
     ASSERT((window != NULL), "[ERROR] Can't create SDL window: %s\n", SDL_GetError());
-
+    
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
     ASSERT((renderer != NULL), "[ERROR] Can't create SDL renderer: %s\n", SDL_GetError());
 
@@ -128,10 +131,11 @@ int main(int argc, char *argv[])
 
     FpsDeltaTime fps_dt = make_fpsdeltatime(FPS_TARGET);
 
-    init_cpu(&cpu, fd, XOCHIP);
+    init_cpu(&cpu, fd, SCHIPC);
     fclose(fd);
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    srand(time(NULL));
 
     while (running)
     {

@@ -117,7 +117,9 @@ void cpu_reset(Chip8_CPU *cpu)
     memset(cpu->game_registers, 0, sizeof(cpu->game_registers));
     memset(cpu->screen_plane1, 0, sizeof(cpu->screen_plane1));
     memset(cpu->screen_plane2, 0, sizeof(cpu->screen_plane2));
-    memcpy(&cpu->game_memory[0x050], &digits, sizeof(digits));
+    memcpy(&cpu->game_memory[SMALL_FONT_ADDRESS], &small_font, sizeof(small_font));
+    memcpy(&cpu->game_memory[BIG_FONT_ADDRESS], &big_font, sizeof(big_font));
+
     reset_stack(&cpu->call_stack);
     cpu->i_register = 0;
     cpu->program_counter = 0x200;
