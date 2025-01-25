@@ -1,9 +1,16 @@
 # CHIP-8 Emulator
 
-Una implementación de un emulador CHIP-8 en C utilizando la librería de gráficos [SDL2](https://github.com/libsdl-org/SDL).
-CHIP-8 es un lenguaje interpretado creado a mediados de los años 70, diseñado originalmente para el microordenador COSMAC VIP.
+Readme en Español: [README_ES](README_ES.md)
 
-## 📸 Capturas de pantalla
+A CHIP-8 emulator implementation in C using the [SDL2](https://github.com/libsdl-org/SDL) graphics library.
+CHIP-8 is an interpreted language created in the mid-70s, originally designed for the COSMAC VIP microcomputer.
+
+## 🌎 Select Language;
+[![en](https://img.shields.io/badge/English-red.svg)](README.md)
+[![pt-br](https://img.shields.io/badge/Português-pt--br-green.svg)](README.pt-br.md)
+[![es](https://img.shields.io/badge/Espa%C3%B1ol-es-yellow.svg)](README.es.md)
+
+## 📸 Screenshots
 
 ![Space Invaders](./images/Space%20Invaders.gif)
 
@@ -11,13 +18,33 @@ CHIP-8 es un lenguaje interpretado creado a mediados de los años 70, diseñado 
 
 ![Tetris](./images/Pong.png)
 
+## 🚀 Compilation and Execution
 
-## 🎮 Controles
+### Compilation Steps
 
-El CHIP-8 original utiliza un teclado hexadecimal de 16 teclas. Las teclas están mapeadas de la siguiente forma:
+Linux:
+
+```console
+$ make chip8
+```
+
+### Running
+
+```console
+$ ./chip8 [Options] ROM
+```
+
+Optional parameters:
+- `-c`: Execution speed, measured in cycles/frame. Recommended values: 7-30. Default: 12.
+- `-t`: Chip8 variant to target. Possible variants: Chip8 | SuperChip | XO-Chip. Default is XO-Chip.
+- `-h`: Displays help message.
+
+## 🎮 Controls
+
+The original CHIP-8 uses a 16-key hexadecimal keyboard. The keys are mapped as follows:
 
 ```
-Teclado Original | Teclado Actual
+Original Keyboard | QWERTY Keyboard
 ---------------------------------
     1 2 3 C          1 2 3 4
     4 5 6 D    ->    Q W E R
@@ -25,33 +52,24 @@ Teclado Original | Teclado Actual
     A 0 B F          Z X C V
 ```
 
-# ⚙️ Testing
+## ⚙️ Testing
 
-El emulador ha sido testeado usando la [Suite de tests de Timendus](https://github.com/Timendus/chip8-test-suite).
-Es capaz de pasar todos los test de la suite, incluidos los relacionados con las diferentes variantes.
+The emulator has been tested using the [Timendus Test Suite](https://github.com/Timendus/chip8-test-suite).
+It is capable of passing all tests in the suite, including those related to different Chip8 instruction set variants (SuperChip & XO-Chip).
 
 ![Tests](images/Test%20Suite.gif)
 
-
-## 🚀 Compilación e instalación
-
-### Pasos para compilar
-
-WIP
-
 ## 📝 TODOs
 
-- [X] Implementar soporte para variantes de Chip8 (SuperChipC, XO-Chip, etc.)
-- [ ] Cargar configuración desde un fichero/línea de comandos
-- [ ] Mejorar la precisión del timing
-- [ ] Añadir herramientas de debug (breakpoints, estado de registros, etc.)
+- [X] Implement support for Chip8 variants (SuperChipC, XO-Chip, etc.)
+- [X] Load configuration from file/command line
+- [ ] Add debug tools (breakpoints, register state, etc.)
 
+## 📄 License
 
-## 📄 Licencia
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
-
-## 🔎 Referencias
+## 🔎 References
 
 - [Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 - [Tobias V. Langhoff Guide](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
@@ -59,10 +77,3 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 - [Timendus Chip8 Test Suite](https://github.com/Timendus/chip8-test-suite)
 - [Chip8 Quirks](https://chip8.gulrak.net/)
 - [Chip8 Quirks II](https://github.com/Chromatophore/HP48-Superchip)
-
-
-
-
-
-
-

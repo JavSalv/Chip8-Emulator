@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
                 "\n"
                 "ARGS:\n"
                 "    <rom_filepath>\n"
-                "            Path to the .ch8 ROM you want to emulate.\n"
+                "            Path to the .ch8 ROM you want to run.\n"
                 "\n"
                 "OPTIONS:\n"
                 "    -t <TARGET>\n"

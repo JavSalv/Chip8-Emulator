@@ -1,6 +1,6 @@
 CC = gcc
-SRC_MAIN = main.c Chip8_CPU.c
-TARGET_MAIN = main
+SRC_MAIN = chip8.c Chip8_CPU.c
+TARGET_MAIN = chip8
 SDL_PATH = ./SDL2
 SDL_LIB = $(SDL_PATH)/lib
 SDL_INCLUDE = $(SDL_PATH)/include
@@ -10,9 +10,9 @@ INCLUDES = -I$(SDL_INCLUDE)
 
 .DEFAULT_GOAL := $(TARGET_MAIN)
 
-.PHONY: all clean main 
+.PHONY: all clean chip8 
 
-all: main
+all: chip8
 
 $(TARGET_MAIN): $(SRC_MAIN)
 	$(CC) $(SRC_MAIN) -o $(TARGET_MAIN) $(CFLAGS) $(LDFLAGS) $(INCLUDES)
