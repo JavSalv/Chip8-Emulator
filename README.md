@@ -13,9 +13,9 @@ CHIP-8 is an interpreted language created in the mid-70s, originally designed fo
 
 ![Tetris](./images/Pong.png)
 
-## 🚀 Compilation and Execution
+## 🚀 Building and Running
 
-### Compilation Steps
+### Building Steps
 
 Linux:
 
@@ -30,7 +30,7 @@ $ ./chip8 [Options] ROM
 ```
 
 Optional parameters:
-- `-c`: Execution speed, measured in cycles/frame. Recommended values: 7-30. Default: 12.
+- `-c`: Running speed, measured in cycles/frame. Recommended values: 7-30. Default: 12.
 - `-t`: Chip8 variant to target. Possible variants: Chip8 | SuperChip | XO-Chip. Default is XO-Chip.
 - `-h`: Displays help message.
 
