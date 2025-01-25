@@ -1,6 +1,6 @@
 CC = gcc
 SRC_MAIN = main.c Chip8_CPU.c
-TARGET_MAIN = chip8
+TARGET_MAIN = main
 SDL_PATH = ./SDL2
 SDL_LIB = $(SDL_PATH)/lib
 SDL_INCLUDE = $(SDL_PATH)/include

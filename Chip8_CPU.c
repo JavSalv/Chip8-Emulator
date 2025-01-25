@@ -132,12 +132,12 @@ void init_cpu(Chip8_CPU *cpu, FILE *stream, Target_Platform target)
     cpu->target = target;
     cpu->mode = LORES;
     cpu->bitplane = 1;
-    fread(&cpu->game_memory[0x200], sizeof(BYTE), 0xfff, stream);
+    fread(&cpu->game_memory[0x200], sizeof(BYTE), XOCHIP_MEMSIZE, stream);
 }
 
-void run_instructions(Chip8_CPU *cpu)
+void run_instructions(Chip8_CPU *cpu, uint32_t CPF)
 {
-    for (int i = 0; i < CHIP8_CYCLES_PER_FRAME; i++)
+    for (uint32_t i = 0; i < CPF; i++)
     {
         //printf("0x%04x  0x%0x4\n",cpu->game_memory[cpu->program_counter-2],cpu->program_counter-2);
         exec_instruction(cpu);

@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
         }
         // Termina input
         // Ejecuto ciclo
-        run_instructions(&cpu);
+        run_instructions(&cpu, cpf);
         update_timers(&cpu);
         if (cpu.dirty_flag)
         {

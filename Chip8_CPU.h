@@ -25,7 +25,10 @@
 
 
 #define CHIP8_STACK_SIZE 16
-#define CHIP8_CYCLES_PER_FRAME 32
+#define CHIP8_CYCLES_PER_FRAME 1
+
+#define CHIP8_MEMSIZE 0x0FFF
+#define XOCHIP_MEMSIZE 0xFFFF
 
 #define CHIP8_SCREEN_WIDTH 128
 #define CHIP8_SCREEN_HEIGHT 64
@@ -58,7 +61,7 @@ typedef struct
 
 typedef struct
 {
-    BYTE game_memory[0xFFF];
+    BYTE game_memory[0xFFFF];
     BYTE game_registers[16];
     WORD i_register;
     WORD program_counter;
@@ -125,7 +128,7 @@ static const BYTE big_font[] = {
 
 void init_cpu(Chip8_CPU *cpu, FILE *stream, Target_Platform target);
 
-void run_instructions(Chip8_CPU *cpu);
+void run_instructions(Chip8_CPU *cpu, uint32_t CPF);
 
 void update_timers(Chip8_CPU *cpu);
 
