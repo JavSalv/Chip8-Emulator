@@ -5,11 +5,6 @@ Readme en Español: [README_ES](README_ES.md)
 A CHIP-8 emulator implementation in C using the [SDL2](https://github.com/libsdl-org/SDL) graphics library.
 CHIP-8 is an interpreted language created in the mid-70s, originally designed for the COSMAC VIP microcomputer.
 
-## 🌎 Select Language;
-[![en](https://img.shields.io/badge/English-red.svg)](README.md)
-[![pt-br](https://img.shields.io/badge/Português-pt--br-green.svg)](README.pt-br.md)
-[![es](https://img.shields.io/badge/Espa%C3%B1ol-es-yellow.svg)](README.es.md)
-
 ## 📸 Screenshots
 
 ![Space Invaders](./images/Space%20Invaders.gif)
